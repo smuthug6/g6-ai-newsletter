@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>G6 AI — Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f13; color: #e2e8f0; min-height: 100vh; }
+    .header { background: #1a1a2e; border-bottom: 1px solid #2d2d44; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+    .header span { font-size: 13px; color: #6b7280; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px; }
+    .login-screen { display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+    .login-box { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 40px; width: 360px; text-align: center; }
+    .login-box h2 { font-size: 22px; margin-bottom: 8px; }
+    .login-box p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    input[type=password], input[type=text] { width: 100%; padding: 10px 14px; background: #0f0f13; border: 1px solid #2d2d44; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 12px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-danger  { background: #ef4444; color: #fff; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-ghost   { background: #2d2d44; color: #e2e8f0; }
+    .btn-full    { width: 100%; justify-content: center; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 24px; }
+    .stat-card .value { font-size: 36px; font-weight: 700; color: #fff; }
+    .stat-card .label { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    .card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .card-header h2 { font-size: 16px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 12px; border-bottom: 1px solid #2d2d44; }
+    td { padding: 14px 0; border-bottom: 1px solid #1f1f30; font-size: 14px; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .badge-active { background: #14532d; color: #4ade80; }
+    .badge-frozen { background: #1e3a5f; color: #60a5fa; }
+    .actions { display: flex; gap: 8px; align-items: center; }
+    .newsletter-item { padding: 12px 0; border-bottom: 1px solid #1f1f30; }
+    .newsletter-item:last-child { border-bottom: none; }
+    .newsletter-item .subject { font-size: 14px; font-weight: 500; }
+    .newsletter-item .meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .alert { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+    .alert-success { background: #14532d; color: #4ade80; }
+    .alert-error   { background: #450a0a; color: #f87171; }
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; border: none; background: transparent; color: #6b7280; }
+    .tab.active { background: #2d2d44; color: #fff; }
+    #preview-frame { width: 100%; border: 1px solid #2d2d44; border-radius: 8px; height: 500px; background: #fff; }
+    .loading { opacity: .5; pointer-events: none; }
+    #alert-box { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen" class="login-screen">
+  <div class="login-box">
+    <h2>🤖 G6 AI</h2>
+    <p>Admin Dashboard</p>
+    <input type="password" id="token-input" placeholder="Admin token" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn btn-primary btn-full" onclick="login()">Sign in</button>
+    <p id="login-error" style="color:#f87171;font-size:13px;margin-top:12px;display:none;">Invalid token</p>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app" style="display:none">
+  <div class="header">
+    <h1>🤖 G6 AI — Admin</h1>
+    <span id="last-refresh"></span>
+  </div>
+
+  <div class="container">
+    <div id="alert-box" class="alert"></div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="value" id="stat-active">—</div>
+        <div class="label">Active subscribers</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="stat-frozen">—</div>
+        <div class="label">Frozen (cancelled)</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="stat-total">—</div>
+        <div class="label">Total ever</div>
+      </div>
+    </div>
+
+    <!-- Actions row -->
+    <div style="display:flex;gap:12px;margin-bottom:24px;">
+      <button class="btn btn-primary" onclick="previewNewsletter()">🔍 Preview today's newsletter</button>
+      <button class="btn btn-success" onclick="sendNow()">📤 Send newsletter now</button>
+      <button class="btn btn-ghost" onclick="loadAll()">🔄 Refresh</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Subscribers</h2>
+        <div class="tab-bar">
+          <button class="tab active" id="tab-active" onclick="switchTab('active')">Active</button>
+          <button class="tab" id="tab-frozen" onclick="switchTab('frozen')">Frozen</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Since</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="subscribers-table">
+          <tr><td colspan="5" style="color:#6b7280;text-align:center;padding:32px">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent newsletters -->
+    <div class="card">
+      <div class="card-header"><h2>Recent newsletters</h2></div>
+      <div id="newsletters-list"><p style="color:#6b7280;font-size:14px">Loading...</p></div>
+    </div>
+
+    <!-- Preview -->
+    <div class="card" id="preview-card" style="display:none">
+      <div class="card-header">
+        <h2>Newsletter preview</h2>
+        <button class="btn btn-ghost" onclick="document.getElementById('preview-card').style.display='none'">Close</button>
+      </div>
+      <iframe id="preview-frame" title="Newsletter preview"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+  let token = '';
+  let currentTab = 'active';
+
+  function login() {
+    token = document.getElementById('token-input').value.trim();
+    if (!token) return;
+    document.getElementById('login-error').style.display = 'none';
+    loadAll();
+  }
+
+  function showAlert(msg, type = 'success') {
+    const el = document.getElementById('alert-box');
+    el.className = `alert alert-${type}`;
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 4000);
+  }
+
+  async function api(path, method = 'GET', body = null) {
+    const opts = {
+      method,
+      headers: { 'x-admin-token': token, 'Content-Type': 'application/json' }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`/admin${path}`, opts);
+    if (res.status === 401) {
+      document.getElementById('login-error').style.display = 'block';
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+      throw new Error('Unauthorized');
+    }
+    return res.json();
+  }
+
+  async function loadAll() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+    const [stats] = await Promise.all([
+      api('/stats'),
+      loadSubscribers(currentTab)
+    ]);
+
+    document.getElementById('stat-active').textContent = stats.active;
+    document.getElementById('stat-frozen').textContent = stats.frozen;
+    document.getElementById('stat-total').textContent = stats.active + stats.frozen;
+
+    const nl = document.getElementById('newsletters-list');
+    if (!stats.recentNewsletters?.length) {
+      nl.innerHTML = '<p style="color:#6b7280;font-size:14px">No newsletters sent yet.</p>';
+    } else {
+      nl.innerHTML = stats.recentNewsletters.map(n => `
+        <div class="newsletter-item">
+          <div class="subject">${n.subject}</div>
+          <div class="meta">Sent to ${n.sent_to} subscribers · ${new Date(n.sent_at).toLocaleString()}</div>
+        </div>`).join('');
+    }
+  }
+
+  async function loadSubscribers(status) {
+    const tbody = document.getElementById('subscribers-table');
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#6b7280;text-align:center;padding:24px">Loading...</td></tr>';
+    const data = await api(`/subscribers?status=${status}`);
+    if (!data.subscribers?.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="color:#6b7280;text-align:center;padding:24px">No ${status} subscribers.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = data.subscribers.map(s => `
+      <tr>
+        <td>${s.email}</td>
+        <td>${s.full_name || '—'}</td>
+        <td><span class="badge badge-${s.status}">${s.status}</span></td>
+        <td>${new Date(s.subscribed_at).toLocaleDateString()}</td>
+        <td>
+          ${s.status === 'active'
+            ? `<button class="btn btn-danger" style="padding:5px 12px;font-size:12px" onclick="freezeSub('${s.email}')">Freeze</button>`
+            : `<button class="btn btn-success" style="padding:5px 12px;font-size:12px" onclick="activateSub('${s.email}')">Activate</button>`
+          }
+        </td>
+      </tr>`).join('');
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-active').classList.toggle('active', tab === 'active');
+    document.getElementById('tab-frozen').classList.toggle('active', tab === 'frozen');
+    loadSubscribers(tab);
+  }
+
+  async function freezeSub(email) {
+    await api(`/subscriber/${encodeURIComponent(email)}/freeze`, 'PATCH');
+    showAlert(`${email} frozen`);
+    loadAll();
+  }
+
+  async function activateSub(email) {
+    await api(`/subscriber/${encodeURIComponent(email)}/activate`, 'PATCH');
+    showAlert(`${email} reactivated`);
+    loadAll();
+  }
+
+  async function previewNewsletter() {
+    showAlert('Generating preview… this takes ~30 seconds');
+    try {
+      const data = await api('/preview', 'POST');
+      const frame = document.getElementById('preview-frame');
+      frame.srcdoc = data.html;
+      document.getElementById('preview-card').style.display = 'block';
+      document.getElementById('preview-card').scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+      showAlert('Preview failed: ' + e.message, 'error');
+    }
+  }
+
+  async function sendNow() {
+    if (!confirm('Send today\'s newsletter to all active subscribers now?')) return;
+    await api('/send-now', 'POST');
+    showAlert('Newsletter send started! Check back in a minute.');
+  }
+</script>
+</body>
+</html>
