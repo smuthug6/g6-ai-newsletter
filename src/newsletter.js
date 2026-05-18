@@ -49,7 +49,12 @@ Date: ${today}
 Research:
 ${searchSummary}
 
-Write the newsletter in this EXACT format — return ONLY valid HTML, nothing else:
+Write the newsletter in this EXACT format — return ONLY valid HTML, nothing else.
+
+For each story, pick ONE image keyword from this list that best matches the story topic:
+gold, silver, dollar, federal-reserve, inflation, brics, economy, money, finance, debt, banking, currency
+
+Use that keyword in the Unsplash image URL for that story.
 
 <!DOCTYPE html>
 <html>
@@ -69,11 +74,12 @@ Write the newsletter in this EXACT format — return ONLY valid HTML, nothing el
       <p style="color:#cccccc;font-size:15px;line-height:1.7;margin:0;">The dollar is under attack. Here's what the financial press is burying — and what you need to know to protect your wealth.</p>
     </div>
 
-    <!-- Stories: repeat this block for each story -->
+    <!-- Stories: repeat this block for each story, replacing [KEYWORD], [HEADLINE], [SUMMARY], [SOURCE URL] -->
     <div style="padding:24px 40px 0;">
       <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;">
+        <img src="https://source.unsplash.com/600x300/?[KEYWORD]" style="width:100%;height:200px;object-fit:cover;margin-bottom:12px;border-radius:4px;display:block;" alt="">
         <h2 style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
-        <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0 0 10px;">[2-3 sentence punchy summary focused on wealth protection implications]</p>
+        <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0 0 10px;">[SUMMARY]</p>
         <a href="[SOURCE URL]" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL STORY →</a>
       </div>
     </div>
@@ -90,7 +96,7 @@ Write the newsletter in this EXACT format — return ONLY valid HTML, nothing el
 </body>
 </html>
 
-Fill in all stories from the research. Use the exact HTML structure above. Make every headline dramatic and urgent.`
+Fill in all stories from the research. Repeat the story block for each story. Replace [KEYWORD] with the single best image keyword for that story. Make every headline dramatic and urgent.`
       }
     ]
   });

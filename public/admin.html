@@ -58,7 +58,7 @@
 <!-- Login screen -->
 <div id="login-screen" class="login-screen">
   <div class="login-box">
-    <h2>🤖 G6 AI</h2>
+    <h2><span style="color:#D4A017;font-weight:700">G6</span> AI</h2>
     <p>Admin Dashboard</p>
     <input type="password" id="token-input" placeholder="Admin token" onkeydown="if(event.key==='Enter')login()">
     <button class="btn btn-primary btn-full" onclick="login()">Sign in</button>
@@ -69,7 +69,7 @@
 <!-- Main app -->
 <div id="app" style="display:none">
   <div class="header">
-    <h1>🤖 G6 AI — Admin</h1>
+    <h1><span style="color:#D4A017;font-weight:700">G6</span> AI — Admin</h1>
     <span id="last-refresh"></span>
   </div>
 
@@ -135,6 +135,15 @@
       <div class="card-header">
         <h2>Newsletter preview</h2>
         <button class="btn btn-ghost" onclick="document.getElementById('preview-card').style.display='none'">Close</button>
+      </div>
+      <!-- Loading state -->
+      <div id="preview-loading" style="display:none;padding:40px 24px;text-align:center;">
+        <div id="preview-status-msg" style="font-size:15px;color:#e2e8f0;margin-bottom:20px;min-height:24px;">Searching the web for today's top stories...</div>
+        <div style="background:#0f0f13;border-radius:8px;height:8px;overflow:hidden;margin-bottom:20px;">
+          <div id="preview-progress" style="height:100%;background:#6366f1;width:0%;transition:width 1s linear;border-radius:8px;"></div>
+        </div>
+        <div id="preview-countdown" style="font-size:48px;font-weight:700;color:#6366f1;line-height:1;">30</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px;">seconds remaining</div>
       </div>
       <iframe id="preview-frame" title="Newsletter preview"></iframe>
     </div>
@@ -244,15 +253,68 @@
     loadAll();
   }
 
+  let _previewTimer = null;
+
   async function previewNewsletter() {
-    showAlert('Generating preview… this takes ~30 seconds');
+    const messages = [
+      "Searching the web for today's top stories...",
+      'Analyzing financial news and trends...',
+      'Writing your De-Dollarize newsletter...',
+      'Almost ready...'
+    ];
+
+    const card     = document.getElementById('preview-card');
+    const loading  = document.getElementById('preview-loading');
+    const frame    = document.getElementById('preview-frame');
+    const statusEl = document.getElementById('preview-status-msg');
+    const countEl  = document.getElementById('preview-countdown');
+    const barEl    = document.getElementById('preview-progress');
+
+    // Show card with loading state, hide iframe
+    card.style.display = 'block';
+    loading.style.display = 'block';
+    frame.style.display = 'none';
+    card.scrollIntoView({ behavior: 'smooth' });
+
+    // Reset
+    let seconds = 30;
+    let msgIndex = 0;
+    statusEl.textContent = messages[0];
+    countEl.textContent = '30';
+    barEl.style.transition = 'none';
+    barEl.style.width = '0%';
+
+    // Kick off smooth bar fill after a paint tick
+    requestAnimationFrame(() => {
+      barEl.style.transition = 'width 1s linear';
+    });
+
+    clearInterval(_previewTimer);
+    _previewTimer = setInterval(() => {
+      seconds = Math.max(0, seconds - 1);
+      const pct = ((30 - seconds) / 30) * 100;
+      barEl.style.width = pct + '%';
+      countEl.textContent = seconds;
+
+      const newIdx = Math.min(messages.length - 1, Math.floor((30 - seconds) / 8));
+      if (newIdx !== msgIndex) {
+        msgIndex = newIdx;
+        statusEl.textContent = messages[msgIndex];
+      }
+    }, 1000);
+
     try {
       const data = await api('/preview', 'POST');
-      const frame = document.getElementById('preview-frame');
+      clearInterval(_previewTimer);
+      barEl.style.width = '100%';
+      await new Promise(r => setTimeout(r, 300));
+      loading.style.display = 'none';
+      frame.style.display = 'block';
       frame.srcdoc = data.html;
-      document.getElementById('preview-card').style.display = 'block';
-      document.getElementById('preview-card').scrollIntoView({ behavior: 'smooth' });
     } catch (e) {
+      clearInterval(_previewTimer);
+      loading.style.display = 'none';
+      frame.style.display = 'block';
       showAlert('Preview failed: ' + e.message, 'error');
     }
   }
