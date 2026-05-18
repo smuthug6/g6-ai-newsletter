@@ -51,11 +51,6 @@ ${searchSummary}
 
 Write the newsletter in this EXACT format — return ONLY valid HTML, nothing else.
 
-For each story, pick ONE image keyword from this list that best matches the story topic:
-gold, silver, dollar, federal-reserve, inflation, brics, economy, money, finance, debt, banking, currency
-
-Use that keyword in the Unsplash image URL for that story.
-
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -69,6 +64,12 @@ Use that keyword in the Unsplash image URL for that story.
       <p style="color:#666666;margin:8px 0 0;font-size:12px;">${today}</p>
     </div>
 
+    <!-- Subheader banner -->
+    <div style="background:#1a0000;padding:24px 36px;text-align:center;border-bottom:2px solid #cc0000;">
+      <div style="color:#cc0000;font-size:13px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;">WHILE YOU WERE DISTRACTED</div>
+      <div style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-.5px;">The truth they don't want you to see</div>
+    </div>
+
     <!-- Intro -->
     <div style="padding:32px 40px 0;">
       <p style="color:#cccccc;font-size:15px;line-height:1.7;margin:0;">The dollar is under attack. Here's what the financial press is burying — and what you need to know to protect your wealth.</p>
@@ -77,7 +78,6 @@ Use that keyword in the Unsplash image URL for that story.
     <!-- Stories: repeat this block for each story, replacing [KEYWORD], [HEADLINE], [SUMMARY], [SOURCE URL] -->
     <div style="padding:24px 40px 0;">
       <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;">
-        <img src="https://source.unsplash.com/600x300/?[KEYWORD]" style="width:100%;height:200px;object-fit:cover;margin-bottom:12px;border-radius:4px;display:block;" alt="">
         <h2 style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
         <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0 0 10px;">[SUMMARY]</p>
         <a href="[SOURCE URL]" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL STORY →</a>
@@ -96,7 +96,7 @@ Use that keyword in the Unsplash image URL for that story.
 </body>
 </html>
 
-Fill in all stories from the research. Repeat the story block for each story. Replace [KEYWORD] with the single best image keyword for that story. Make every headline dramatic and urgent.`
+Fill in all stories from the research. Repeat the story block for each story. Make every headline dramatic and urgent.`
       }
     ]
   });
