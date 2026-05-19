@@ -1,6 +1,37 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const axios = require('axios');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// ── Google Imagen image generation ────────────────────────────────────────────
+async function generateStoryImage(headline) {
+  if (!process.env.GOOGLE_AI_KEY) return null;
+  try {
+    const prompt = `Dramatic cinematic dark financial scene: "${headline}". ` +
+      'Deep black background, dark crimson and gold tones, high contrast moody lighting, ' +
+      'photorealistic, professional editorial photography, no text, no words, no people, no faces.';
+
+    const res = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
+      { instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: '16:9' } },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
+    );
+    return res.data?.predictions?.[0]?.bytesBase64Encoded || null;
+  } catch (err) {
+    console.warn(`Image generation failed for "${headline.slice(0, 40)}...": ${err.response?.data?.error?.message || err.message}`);
+    return null;
+  }
+}
+
+// Inject base64 images above each <h2> in the Claude-generated story HTML
+function injectImages(storiesHTML, images) {
+  let idx = 0;
+  return storiesHTML.replace(/<h2 /g, (match) => {
+    const b64 = images[idx++];
+    if (!b64) return match;
+    return `<img src="data:image/png;base64,${b64}" style="width:100%;height:220px;object-fit:cover;margin-bottom:16px;border-radius:4px;display:block;" alt="">\n    ${match}`;
+  });
+}
 
 const SYSTEM_PROMPT = `You are a financial intelligence writer for De-Dollarize News. Your tone is urgent, bold, and insider-focused. You write like someone exposing what the establishment doesn't want people to know. Headlines are dramatic and direct. Summaries are 2-3 sentences, punchy, and focused on protecting wealth.`;
 
@@ -61,13 +92,15 @@ async function generatePremiumNewsletter(articles, topics) {
     `Article ${i + 1}:\nTitle: ${a.title}\nSource: ${a.source}\nURL: ${a.url}\nSummary: ${a.summary || '(no summary)'}`
   ).join('\n\n');
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000,
-    system: SYSTEM_PROMPT,
-    messages: [{
-      role: 'user',
-      content: `Write the De-Dollarize News premium newsletter for ${today}.
+  // Generate images in parallel while Claude writes — both run concurrently
+  const [response, images] = await Promise.all([
+    client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: `Write the De-Dollarize News premium newsletter for ${today}.
 
 You have these 5 curated stories:
 
@@ -86,10 +119,13 @@ For each story, output this block (fill in [HEADLINE], [DEEP ANALYSIS], [SOURCE 
     </div>
 
 Output all 5 story blocks back to back. Nothing else.`
-    }]
-  });
+      }]
+    }),
+    Promise.all(articles.map(a => generateStoryImage(a.title)))
+  ]);
 
-  const storiesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  const storiesHTML = injectImages(rawStoriesHTML, images);
   const html = wrapHTML(storiesHTML, today);
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
