@@ -1,14 +1,16 @@
 const cron = require('node-cron');
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { sendNewsletterToAll, sendNewsletterToTag } = require('../ghl');
+const { createEmailCampaign } = require('../ghl');
+
+const PREMIUM_TAG = 'active-inner-circle-newsletter';
+const FREE_TAG    = 'lead-source-inner-circle';
 
 // ── Fetch today's approved articles, auto-approving top 5 if needed ──────────
 async function getArticlesForToday() {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
 
-  // Try approved articles first
   const { rows: approved } = await db.query(
     `SELECT * FROM daily_articles
      WHERE approved = true AND created_at >= $1
@@ -18,7 +20,6 @@ async function getArticlesForToday() {
 
   if (approved.length >= 1) return approved;
 
-  // Auto-approve top 5 by score
   console.log('No approved articles — auto-approving top 5 by score...');
   const { rows: top5 } = await db.query(
     `SELECT * FROM daily_articles
@@ -45,62 +46,53 @@ async function runDailyNewsletter() {
   const topics = (process.env.NEWSLETTER_TOPICS || 'dollar devaluation,BRICS,gold,inflation')
     .split(',').map(t => t.trim());
 
+  const dateLabel = new Date().toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric'
+  });
+
   try {
-    // ── Get articles ───────────────────────────────────────────────────────────
     const articles = await getArticlesForToday();
 
-    // ── Premium send ───────────────────────────────────────────────────────────
-    const { rows: premiumSubs } = await db.query(
-      `SELECT id, email, full_name, ghl_contact_id FROM subscribers WHERE status = 'active'`
-    );
-
-    if (premiumSubs.length === 0) {
-      console.log('No active premium subscribers, skipping premium send.');
+    // ── Premium campaign ───────────────────────────────────────────────────────
+    let premiumResult;
+    if (articles.length > 0) {
+      premiumResult = await generatePremiumNewsletter(articles, topics);
     } else {
-      console.log(`Sending premium newsletter to ${premiumSubs.length} subscribers`);
-
-      let premiumResult;
-      if (articles.length > 0) {
-        premiumResult = await generatePremiumNewsletter(articles, topics);
-      } else {
-        console.log('No articles in DB — falling back to web search');
-        premiumResult = await generateNewsletter(topics);
-      }
-
-      const { sent: premiumSent, failed: premiumFailed } = await sendNewsletterToAll(
-        premiumSubs, premiumResult.subject, premiumResult.html
-      );
-
-      await db.query(
-        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
-         VALUES ($1, $2, $3, $4, 'premium')`,
-        [premiumResult.subject, premiumResult.html, premiumSent, topics]
-      );
-
-      console.log(`✅ Premium sent: ${premiumSent}, failed: ${premiumFailed}`);
+      console.log('No articles in DB — falling back to web search');
+      premiumResult = await generateNewsletter(topics);
     }
 
-    // ── Free teaser send ───────────────────────────────────────────────────────
-    const freeTag = process.env.FREE_LEADS_TAG;
-    if (!freeTag) {
-      console.log('FREE_LEADS_TAG not set, skipping free send.');
-    } else if (articles.length === 0) {
+    const premiumCampaign = await createEmailCampaign({
+      name:    `De-Dollarize Premium - ${dateLabel}`,
+      subject: premiumResult.subject,
+      html:    premiumResult.html,
+      tag:     PREMIUM_TAG,
+    });
+
+    await db.query(
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
+       VALUES ($1, $2, $3, $4, 'premium')`,
+      [premiumResult.subject, premiumResult.html, premiumCampaign.success ? 1 : 0, topics]
+    );
+
+    // ── Free teaser campaign ───────────────────────────────────────────────────
+    if (articles.length === 0) {
       console.log('No articles for free teaser, skipping.');
     } else {
-      console.log(`Sending free teaser to GHL tag: ${freeTag}`);
-
       const freeResult = await generateFreeNewsletter(articles);
-      const { sent: freeSent, failed: freeFailed } = await sendNewsletterToTag(
-        freeTag, freeResult.subject, freeResult.html
-      );
+
+      const freeCampaign = await createEmailCampaign({
+        name:    `De-Dollarize Free Teaser - ${dateLabel}`,
+        subject: freeResult.subject,
+        html:    freeResult.html,
+        tag:     FREE_TAG,
+      });
 
       await db.query(
         `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
          VALUES ($1, $2, $3, $4, 'free')`,
-        [freeResult.subject, freeResult.html, freeSent, topics]
+        [freeResult.subject, freeResult.html, freeCampaign.success ? 1 : 0, topics]
       );
-
-      console.log(`✅ Free teaser sent: ${freeSent}, failed: ${freeFailed}`);
     }
 
     console.log('✅ Daily newsletter job complete.');

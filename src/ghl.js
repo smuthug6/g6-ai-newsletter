@@ -2,126 +2,41 @@ const axios = require('axios');
 
 const GHL_BASE = 'https://services.leadconnectorhq.com';
 
-// ── Send an email to a single contact via GHL ─────────────────────────────────
-async function sendEmailToContact({ contactId, email, subject, htmlBody }) {
+const GHL_HEADERS = {
+  Authorization: `Bearer ${process.env.GHL_API_KEY}`,
+  'Content-Type': 'application/json',
+  Version: '2021-04-15',
+};
+
+// ── Create and immediately schedule a GHL email campaign ─────────────────────
+async function createEmailCampaign({ name, subject, html, tag }) {
+  const scheduledDateTime = new Date(Date.now() + 60_000).toISOString(); // 1 min from now
+
+  const body = {
+    name,
+    subject,
+    html,
+    locationId: process.env.GHL_LOCATION_ID,
+    contactTagFilters: [tag],
+    status: 'scheduled',
+    scheduledDateTime,
+  };
+
   try {
-    await axios.post(
-      `${GHL_BASE}/conversations/messages/outbound`,
-      {
-        type: 'Email',
-        contactId,
-        subject,
-        html: htmlBody,
-        // If you have a From name/email configured in GHL, it uses that by default
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.GHL_API_KEY}`,
-          'Content-Type': 'application/json',
-          Version: '2021-04-15',
-        },
-      }
+    const res = await axios.post(
+      `${GHL_BASE}/email-marketing/campaigns`,
+      body,
+      { headers: GHL_HEADERS }
     );
-    return { success: true };
+
+    const campaign = res.data?.campaign || res.data;
+    console.log(`✅ GHL campaign created: "${name}" (id: ${campaign?.id || '?'}) → tag: [${tag}]`);
+    return { success: true, campaignId: campaign?.id };
   } catch (err) {
-    console.error(`Failed to send to ${email}:`, err.response?.data || err.message);
-    return { success: false, error: err.message };
+    const detail = JSON.stringify(err.response?.data || err.message);
+    console.error(`❌ GHL campaign FAILED: "${name}" → ${detail}`);
+    return { success: false, error: detail };
   }
 }
 
-// ── Send newsletter to ALL active subscribers ─────────────────────────────────
-async function sendNewsletterToAll(subscribers, subject, htmlBody) {
-  let sent = 0;
-  let failed = 0;
-
-  for (const sub of subscribers) {
-    // GHL requires a contactId; fall back to a lookup if missing
-    let contactId = sub.ghl_contact_id;
-
-    if (!contactId) {
-      contactId = await lookupContactId(sub.email);
-    }
-
-    if (!contactId) {
-      console.warn(`No GHL contact ID for ${sub.email}, skipping`);
-      failed++;
-      continue;
-    }
-
-    const result = await sendEmailToContact({
-      contactId,
-      email: sub.email,
-      subject,
-      htmlBody,
-    });
-
-    if (result.success) {
-      sent++;
-    } else {
-      failed++;
-    }
-
-    // Small delay to avoid GHL rate limits
-    await new Promise(r => setTimeout(r, 200));
-  }
-
-  console.log(`Newsletter sent: ${sent} success, ${failed} failed`);
-  return { sent, failed };
-}
-
-// ── Look up a GHL contact by email ────────────────────────────────────────────
-async function lookupContactId(email) {
-  try {
-    const res = await axios.get(`${GHL_BASE}/contacts/search/duplicate`, {
-      params: { locationId: process.env.GHL_LOCATION_ID, email },
-      headers: {
-        Authorization: `Bearer ${process.env.GHL_API_KEY}`,
-        Version: '2021-04-15',
-      },
-    });
-    return res.data?.contact?.id || null;
-  } catch {
-    return null;
-  }
-}
-
-// ── Send newsletter to all contacts with a specific GHL tag ──────────────────
-async function sendNewsletterToTag(tag, subject, htmlBody) {
-  let sent = 0;
-  let failed = 0;
-  let page = 1;
-
-  while (true) {
-    try {
-      const res = await axios.get(`${GHL_BASE}/contacts/`, {
-        params: { locationId: process.env.GHL_LOCATION_ID, tags: tag, limit: 100, page },
-        headers: { Authorization: `Bearer ${process.env.GHL_API_KEY}`, Version: '2021-04-15' },
-      });
-
-      const contacts = res.data?.contacts || [];
-      if (contacts.length === 0) break;
-
-      for (const contact of contacts) {
-        const result = await sendEmailToContact({
-          contactId: contact.id,
-          email: contact.email,
-          subject,
-          htmlBody,
-        });
-        result.success ? sent++ : failed++;
-        await new Promise(r => setTimeout(r, 200));
-      }
-
-      if (contacts.length < 100) break;
-      page++;
-    } catch (err) {
-      console.error(`Failed to fetch contacts for tag ${tag}:`, err.response?.data || err.message);
-      break;
-    }
-  }
-
-  console.log(`Tag send [${tag}]: ${sent} success, ${failed} failed`);
-  return { sent, failed };
-}
-
-module.exports = { sendNewsletterToAll, sendNewsletterToTag, sendEmailToContact };
+module.exports = { createEmailCampaign };
