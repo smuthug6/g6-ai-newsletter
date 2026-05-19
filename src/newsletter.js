@@ -1,24 +1,36 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const axios = require('axios');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// ── Google Imagen image generation ────────────────────────────────────────────
+// ── Google Imagen 4 image generation ─────────────────────────────────────────
 async function generateStoryImage(headline) {
   if (!process.env.GOOGLE_AI_KEY) return null;
   try {
-    const prompt = `Dramatic cinematic dark financial scene: "${headline}". ` +
+    const imagePrompt = `Dramatic cinematic dark financial scene: "${headline}". ` +
       'Deep black background, dark crimson and gold tones, high contrast moody lighting, ' +
       'photorealistic, professional editorial photography, no text, no words, no people, no faces.';
 
-    const res = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
-      { instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: '16:9' } },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt: imagePrompt }],
+          parameters: { sampleCount: 1, aspectRatio: '16:9' }
+        })
+      }
     );
-    return res.data?.predictions?.[0]?.bytesBase64Encoded || null;
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data?.predictions?.[0]?.bytesBase64Encoded || null;
   } catch (err) {
-    console.warn(`Image generation failed for "${headline.slice(0, 40)}...": ${err.response?.data?.error?.message || err.message}`);
+    console.warn(`Image generation failed for "${headline.slice(0, 40)}...": ${err.message}`);
     return null;
   }
 }
