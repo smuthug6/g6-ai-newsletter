@@ -15,7 +15,7 @@
     .login-box { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 40px; width: 360px; text-align: center; }
     .login-box h2 { font-size: 22px; margin-bottom: 8px; }
     .login-box p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
-    input[type=password], input[type=text] { width: 100%; padding: 10px 14px; background: #0f0f13; border: 1px solid #2d2d44; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 12px; }
+    input[type=password], input[type=text], input[type=url] { width: 100%; padding: 10px 14px; background: #0f0f13; border: 1px solid #2d2d44; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 12px; }
     .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity .15s; }
     .btn:hover { opacity: .85; }
     .btn-primary { background: #6366f1; color: #fff; }
@@ -23,6 +23,8 @@
     .btn-success { background: #22c55e; color: #fff; }
     .btn-ghost   { background: #2d2d44; color: #e2e8f0; }
     .btn-full    { width: 100%; justify-content: center; }
+    .btn-approve { background: #15803d; color: #fff; font-size: 15px; font-weight: 700; padding: 14px 28px; }
+    .btn-sm      { padding: 5px 10px; font-size: 12px; }
     .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
     .stat-card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 24px; }
     .stat-card .value { font-size: 36px; font-weight: 700; color: #fff; }
@@ -32,12 +34,15 @@
     .card-header h2 { font-size: 16px; font-weight: 600; }
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 12px; border-bottom: 1px solid #2d2d44; }
-    td { padding: 14px 0; border-bottom: 1px solid #1f1f30; font-size: 14px; vertical-align: middle; }
+    td { padding: 12px 0; border-bottom: 1px solid #1f1f30; font-size: 14px; vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
-    .badge-active { background: #14532d; color: #4ade80; }
-    .badge-frozen { background: #1e3a5f; color: #60a5fa; }
-    .actions { display: flex; gap: 8px; align-items: center; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .badge-active  { background: #14532d; color: #4ade80; }
+    .badge-frozen  { background: #1e3a5f; color: #60a5fa; }
+    .badge-score-high   { background: #14532d; color: #4ade80; }
+    .badge-score-mid    { background: #713f12; color: #fbbf24; }
+    .badge-score-low    { background: #450a0a; color: #f87171; }
+    .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .newsletter-item { padding: 12px 0; border-bottom: 1px solid #1f1f30; }
     .newsletter-item:last-child { border-bottom: none; }
     .newsletter-item .subject { font-size: 14px; font-weight: 500; }
@@ -49,8 +54,20 @@
     .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; border: none; background: transparent; color: #6b7280; }
     .tab.active { background: #2d2d44; color: #fff; }
     #preview-frame { width: 100%; border: 1px solid #2d2d44; border-radius: 8px; height: 500px; background: #fff; }
-    .loading { opacity: .5; pointer-events: none; }
     #alert-box { display: none; }
+    .queue-section { border: 1px solid #cc0000; border-radius: 12px; background: #1a0a0a; margin-bottom: 28px; overflow: hidden; }
+    .queue-header { background: #2a0a0a; padding: 18px 24px; border-bottom: 1px solid #cc0000; display: flex; align-items: center; justify-content: space-between; }
+    .queue-header h2 { font-size: 15px; font-weight: 700; color: #ff4444; letter-spacing: .05em; text-transform: uppercase; }
+    .queue-body { padding: 0 24px 20px; }
+    .custom-form { display: none; background: #0f0f13; border: 1px solid #2d2d44; border-radius: 8px; padding: 16px; margin-top: 12px; }
+    .custom-form.open { display: block; }
+    .queue-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+    .notice { font-size: 12px; color: #6b7280; margin-top: 8px; }
+    .rank-num { color: #6b7280; font-size: 13px; font-weight: 700; width: 28px; }
+    .article-title a { color: #e2e8f0; text-decoration: none; font-weight: 500; }
+    .article-title a:hover { color: #cc0000; }
+    .source-tag { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .time-ago { font-size: 12px; color: #6b7280; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -76,6 +93,47 @@
   <div class="container">
     <div id="alert-box" class="alert"></div>
 
+    <!-- ── TODAY'S CONTENT QUEUE ──────────────────────────────────────────── -->
+    <div class="queue-section">
+      <div class="queue-header">
+        <h2>📡 Today's Content Queue</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadArticles()">🔄 Refresh</button>
+      </div>
+      <div class="queue-body">
+        <table style="margin-top:16px;">
+          <thead>
+            <tr>
+              <th style="width:28px;">#</th>
+              <th>Title</th>
+              <th>Source</th>
+              <th>Score</th>
+              <th>Published</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="articles-table">
+            <tr><td colspan="6" style="color:#6b7280;text-align:center;padding:24px">Loading articles...</td></tr>
+          </tbody>
+        </table>
+
+        <!-- Custom story form -->
+        <button class="btn btn-ghost btn-sm" style="margin-top:16px;" onclick="toggleCustomForm()">+ Add Custom Story</button>
+        <div id="custom-form" class="custom-form">
+          <input type="text" id="custom-title" placeholder="Story title *">
+          <input type="url" id="custom-url" placeholder="URL (optional)">
+          <button class="btn btn-primary btn-sm" onclick="addCustomStory()">Add Story</button>
+        </div>
+
+        <!-- Queue action buttons -->
+        <div class="queue-actions">
+          <button class="btn btn-ghost" onclick="previewNewsletter('premium')">👁 Preview Premium</button>
+          <button class="btn btn-ghost" onclick="previewNewsletter('free')">👁 Preview Free Teaser</button>
+          <button class="btn btn-approve" onclick="approveTop5()">✅ APPROVE TOP 5 &amp; SCHEDULE FOR 8AM</button>
+        </div>
+        <p class="notice">Auto-approves at 7:55am UTC if not manually approved</p>
+      </div>
+    </div>
+
     <!-- Stats -->
     <div class="stats-grid">
       <div class="stat-card">
@@ -94,12 +152,11 @@
 
     <!-- Actions row -->
     <div style="display:flex;gap:12px;margin-bottom:24px;">
-      <button class="btn btn-primary" onclick="previewNewsletter()">🔍 Preview today's newsletter</button>
       <button class="btn btn-success" onclick="sendNow()">📤 Send newsletter now</button>
       <button class="btn btn-ghost" onclick="loadAll()">🔄 Refresh</button>
     </div>
 
-    <!-- Tabs -->
+    <!-- Subscribers -->
     <div class="card">
       <div class="card-header">
         <h2>Subscribers</h2>
@@ -111,11 +168,7 @@
       <table>
         <thead>
           <tr>
-            <th>Email</th>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Since</th>
-            <th>Action</th>
+            <th>Email</th><th>Name</th><th>Status</th><th>Since</th><th>Action</th>
           </tr>
         </thead>
         <tbody id="subscribers-table">
@@ -130,10 +183,10 @@
       <div id="newsletters-list"><p style="color:#6b7280;font-size:14px">Loading...</p></div>
     </div>
 
-    <!-- Preview -->
+    <!-- Preview card -->
     <div class="card" id="preview-card" style="display:none">
       <div class="card-header">
-        <h2>Newsletter preview</h2>
+        <h2 id="preview-card-title">Newsletter preview</h2>
         <button class="btn btn-ghost" onclick="document.getElementById('preview-card').style.display='none'">Close</button>
       </div>
       <!-- Loading state -->
@@ -153,6 +206,8 @@
 <script>
   let token = '';
   let currentTab = 'active';
+  let _previewTimer = null;
+  let articleOrder = [];
 
   function login() {
     token = document.getElementById('token-input').value.trim();
@@ -166,14 +221,11 @@
     el.className = `alert alert-${type}`;
     el.textContent = msg;
     el.style.display = 'block';
-    setTimeout(() => el.style.display = 'none', 4000);
+    setTimeout(() => el.style.display = 'none', 5000);
   }
 
   async function api(path, method = 'GET', body = null) {
-    const opts = {
-      method,
-      headers: { 'x-admin-token': token, 'Content-Type': 'application/json' }
-    };
+    const opts = { method, headers: { 'x-admin-token': token, 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(`/admin${path}`, opts);
     if (res.status === 401) {
@@ -185,15 +237,106 @@
     return res.json();
   }
 
+  function timeAgo(dateStr) {
+    if (!dateStr) return '—';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const h = Math.floor(diff / 3_600_000);
+    const m = Math.floor((diff % 3_600_000) / 60_000);
+    if (h > 23) return `${Math.floor(h/24)}d ago`;
+    if (h > 0)  return `${h}h ago`;
+    return `${m}m ago`;
+  }
+
+  function scoreBadge(score) {
+    const cls = score >= 80 ? 'badge-score-high' : score >= 50 ? 'badge-score-mid' : 'badge-score-low';
+    return `<span class="badge ${cls}">${score}</span>`;
+  }
+
+  // ── Articles queue ──────────────────────────────────────────────────────────
+  async function loadArticles() {
+    const tbody = document.getElementById('articles-table');
+    tbody.innerHTML = '<tr><td colspan="6" style="color:#6b7280;text-align:center;padding:24px">Loading...</td></tr>';
+    const data = await api('/articles/today');
+    const articles = data.articles || [];
+    articleOrder = articles.map(a => a.id);
+
+    if (!articles.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#6b7280;text-align:center;padding:24px">No articles yet today. Run the aggregator or add a custom story.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = articles.map((a, i) => `
+      <tr id="row-${a.id}">
+        <td class="rank-num">#${i + 1}</td>
+        <td class="article-title">
+          ${a.url ? `<a href="${a.url}" target="_blank">${a.title}</a>` : a.title}
+          <div class="source-tag">${a.source}${a.approved ? ' · <span style="color:#4ade80;">✓ approved</span>' : ''}</div>
+        </td>
+        <td><span style="font-size:12px;color:#a0aec0;">${a.source}</span></td>
+        <td>${scoreBadge(a.score)}</td>
+        <td class="time-ago">${timeAgo(a.published_at || a.created_at)}</td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-success btn-sm" onclick="approveArticle('${a.id}')">✓ Keep</button>
+            <button class="btn btn-danger btn-sm" onclick="removeArticle('${a.id}')">✗ Remove</button>
+            ${i > 0 ? `<button class="btn btn-ghost btn-sm" onclick="moveArticle(${i}, -1)">↑</button>` : ''}
+            ${i < articles.length - 1 ? `<button class="btn btn-ghost btn-sm" onclick="moveArticle(${i}, 1)">↓</button>` : ''}
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function approveArticle(id) {
+    await api(`/articles/${id}/approve`, 'POST');
+    showAlert('Article approved');
+    loadArticles();
+  }
+
+  async function removeArticle(id) {
+    await api(`/articles/${id}/remove`, 'POST');
+    showAlert('Article removed');
+    loadArticles();
+  }
+
+  async function moveArticle(index, direction) {
+    const newOrder = [...articleOrder];
+    const swapIdx = index + direction;
+    [newOrder[index], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[index]];
+    articleOrder = newOrder;
+    await api('/articles/reorder', 'POST', { order: newOrder });
+    loadArticles();
+  }
+
+  function toggleCustomForm() {
+    document.getElementById('custom-form').classList.toggle('open');
+  }
+
+  async function addCustomStory() {
+    const title = document.getElementById('custom-title').value.trim();
+    const url   = document.getElementById('custom-url').value.trim();
+    if (!title) return showAlert('Title is required', 'error');
+    await api('/articles/custom', 'POST', { title, url });
+    document.getElementById('custom-title').value = '';
+    document.getElementById('custom-url').value = '';
+    document.getElementById('custom-form').classList.remove('open');
+    showAlert('Custom story added and approved');
+    loadArticles();
+  }
+
+  async function approveTop5() {
+    const data = await api('/approve-top5', 'POST');
+    if (data.error) return showAlert(data.error, 'error');
+    showAlert(`✅ Top ${data.approved} articles approved and scheduled for 8am`);
+    loadArticles();
+  }
+
+  // ── Stats & subscribers ─────────────────────────────────────────────────────
   async function loadAll() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
 
-    const [stats] = await Promise.all([
-      api('/stats'),
-      loadSubscribers(currentTab)
-    ]);
+    const [stats] = await Promise.all([api('/stats'), loadSubscribers(currentTab), loadArticles()]);
 
     document.getElementById('stat-active').textContent = stats.active;
     document.getElementById('stat-frozen').textContent = stats.frozen;
@@ -206,7 +349,7 @@
       nl.innerHTML = stats.recentNewsletters.map(n => `
         <div class="newsletter-item">
           <div class="subject">${n.subject}</div>
-          <div class="meta">Sent to ${n.sent_to} subscribers · ${new Date(n.sent_at).toLocaleString()}</div>
+          <div class="meta">Sent to ${n.sent_to} · ${n.tier || 'premium'} · ${new Date(n.sent_at).toLocaleString()}</div>
         </div>`).join('');
     }
   }
@@ -227,9 +370,8 @@
         <td>${new Date(s.subscribed_at).toLocaleDateString()}</td>
         <td>
           ${s.status === 'active'
-            ? `<button class="btn btn-danger" style="padding:5px 12px;font-size:12px" onclick="freezeSub('${s.email}')">Freeze</button>`
-            : `<button class="btn btn-success" style="padding:5px 12px;font-size:12px" onclick="activateSub('${s.email}')">Activate</button>`
-          }
+            ? `<button class="btn btn-danger btn-sm" onclick="freezeSub('${s.email}')">Freeze</button>`
+            : `<button class="btn btn-success btn-sm" onclick="activateSub('${s.email}')">Activate</button>`}
         </td>
       </tr>`).join('');
   }
@@ -253,9 +395,8 @@
     loadAll();
   }
 
-  let _previewTimer = null;
-
-  async function previewNewsletter() {
+  // ── Preview with countdown ──────────────────────────────────────────────────
+  async function previewNewsletter(type = 'premium') {
     const messages = [
       "Searching the web for today's top stories...",
       'Analyzing financial news and trends...',
@@ -269,47 +410,39 @@
     const statusEl = document.getElementById('preview-status-msg');
     const countEl  = document.getElementById('preview-countdown');
     const barEl    = document.getElementById('preview-progress');
+    const titleEl  = document.getElementById('preview-card-title');
 
-    // Show card with loading state, hide iframe
+    titleEl.textContent = type === 'free' ? 'Free Teaser Preview' : 'Premium Preview';
     card.style.display = 'block';
     loading.style.display = 'block';
     frame.style.display = 'none';
     card.scrollIntoView({ behavior: 'smooth' });
 
-    // Reset
-    let seconds = 30;
-    let msgIndex = 0;
+    let seconds = 30, msgIndex = 0;
     statusEl.textContent = messages[0];
     countEl.textContent = '30';
     barEl.style.transition = 'none';
     barEl.style.width = '0%';
-
-    // Kick off smooth bar fill after a paint tick
-    requestAnimationFrame(() => {
-      barEl.style.transition = 'width 1s linear';
-    });
+    requestAnimationFrame(() => { barEl.style.transition = 'width 1s linear'; });
 
     clearInterval(_previewTimer);
     _previewTimer = setInterval(() => {
       seconds = Math.max(0, seconds - 1);
-      const pct = ((30 - seconds) / 30) * 100;
-      barEl.style.width = pct + '%';
+      barEl.style.width = ((30 - seconds) / 30 * 100) + '%';
       countEl.textContent = seconds;
-
       const newIdx = Math.min(messages.length - 1, Math.floor((30 - seconds) / 8));
-      if (newIdx !== msgIndex) {
-        msgIndex = newIdx;
-        statusEl.textContent = messages[msgIndex];
-      }
+      if (newIdx !== msgIndex) { msgIndex = newIdx; statusEl.textContent = messages[msgIndex]; }
     }, 1000);
 
     try {
-      const data = await api('/preview', 'POST');
+      const endpoint = type === 'free' ? '/preview/free' : '/preview/premium';
+      const data = await api(endpoint, 'POST');
       clearInterval(_previewTimer);
       barEl.style.width = '100%';
       await new Promise(r => setTimeout(r, 300));
       loading.style.display = 'none';
       frame.style.display = 'block';
+      if (data.error) return showAlert(data.error, 'error');
       frame.srcdoc = data.html;
     } catch (e) {
       clearInterval(_previewTimer);

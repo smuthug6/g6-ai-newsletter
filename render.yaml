@@ -23,3 +23,7 @@ services:
         sync: false
       - key: CRON_SCHEDULE
         value: "0 8 * * *"
+      - key: FREE_LEADS_TAG
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

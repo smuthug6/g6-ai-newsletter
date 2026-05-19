@@ -85,4 +85,43 @@ async function lookupContactId(email) {
   }
 }
 
-module.exports = { sendNewsletterToAll, sendEmailToContact };
+// ── Send newsletter to all contacts with a specific GHL tag ──────────────────
+async function sendNewsletterToTag(tag, subject, htmlBody) {
+  let sent = 0;
+  let failed = 0;
+  let page = 1;
+
+  while (true) {
+    try {
+      const res = await axios.get(`${GHL_BASE}/contacts/`, {
+        params: { locationId: process.env.GHL_LOCATION_ID, tags: tag, limit: 100, page },
+        headers: { Authorization: `Bearer ${process.env.GHL_API_KEY}`, Version: '2021-04-15' },
+      });
+
+      const contacts = res.data?.contacts || [];
+      if (contacts.length === 0) break;
+
+      for (const contact of contacts) {
+        const result = await sendEmailToContact({
+          contactId: contact.id,
+          email: contact.email,
+          subject,
+          htmlBody,
+        });
+        result.success ? sent++ : failed++;
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      if (contacts.length < 100) break;
+      page++;
+    } catch (err) {
+      console.error(`Failed to fetch contacts for tag ${tag}:`, err.response?.data || err.message);
+      break;
+    }
+  }
+
+  console.log(`Tag send [${tag}]: ${sent} success, ${failed} failed`);
+  return { sent, failed };
+}
+
+module.exports = { sendNewsletterToAll, sendNewsletterToTag, sendEmailToContact };
