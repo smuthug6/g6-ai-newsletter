@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { createEmailCampaign } = require('../ghl');
+const { sendCampaignToTag } = require('../ghl');
 
 const PREMIUM_TAG = 'active-inner-circle-newsletter';
 const FREE_TAG    = 'lead-source-inner-circle';
@@ -62,17 +62,17 @@ async function runDailyNewsletter() {
       premiumResult = await generateNewsletter(topics);
     }
 
-    const premiumCampaign = await createEmailCampaign({
+    const premiumSend = await sendCampaignToTag({
       name:    `De-Dollarize Premium - ${dateLabel}`,
+      tag:     PREMIUM_TAG,
       subject: premiumResult.subject,
       html:    premiumResult.html,
-      tag:     PREMIUM_TAG,
     });
 
     await db.query(
       `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
        VALUES ($1, $2, $3, $4, 'premium')`,
-      [premiumResult.subject, premiumResult.html, premiumCampaign.success ? 1 : 0, topics]
+      [premiumResult.subject, premiumResult.html, premiumSend.sent, topics]
     );
 
     // ── Free teaser campaign ───────────────────────────────────────────────────
@@ -81,17 +81,17 @@ async function runDailyNewsletter() {
     } else {
       const freeResult = await generateFreeNewsletter(articles);
 
-      const freeCampaign = await createEmailCampaign({
-        name:    `De-Dollarize Free Teaser - ${dateLabel}`,
+      const freeSend = await sendCampaignToTag({
+        name:    `De-Dollarize Free - ${dateLabel}`,
+        tag:     FREE_TAG,
         subject: freeResult.subject,
         html:    freeResult.html,
-        tag:     FREE_TAG,
       });
 
       await db.query(
         `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
          VALUES ($1, $2, $3, $4, 'free')`,
-        [freeResult.subject, freeResult.html, freeCampaign.success ? 1 : 0, topics]
+        [freeResult.subject, freeResult.html, freeSend.sent, topics]
       );
     }
 
