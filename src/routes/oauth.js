@@ -54,4 +54,45 @@ router.get('/callback', async (req, res) => {
   }
 });
 
+// ── POST /oauth/install-webhook — GHL fires this on app install/uninstall ─────
+// Payload contains: access_token, refresh_token, expires_in, locationId, userId, etc.
+router.post('/install-webhook', async (req, res) => {
+  console.log('📦 GHL install webhook received:', JSON.stringify(req.body));
+
+  const { access_token, refresh_token, expires_in, locationId, type } = req.body;
+
+  // GHL also fires this on uninstall — ignore those
+  if (type === 'UNINSTALL') {
+    console.log('App uninstalled from location:', locationId);
+    return res.json({ ok: true });
+  }
+
+  if (!access_token) {
+    console.error('Install webhook: no access_token in payload');
+    return res.status(400).json({ error: 'No access_token in payload' });
+  }
+
+  try {
+    const expiresAt = new Date(Date.now() + (expires_in || 86400) * 1000);
+
+    await db.query(
+      `INSERT INTO oauth_tokens (provider, access_token, refresh_token, expires_at, location_id)
+       VALUES ('ghl', $1, $2, $3, $4)
+       ON CONFLICT (provider) DO UPDATE SET
+         access_token  = EXCLUDED.access_token,
+         refresh_token = EXCLUDED.refresh_token,
+         expires_at    = EXCLUDED.expires_at,
+         location_id   = EXCLUDED.location_id,
+         updated_at    = NOW()`,
+      [access_token, refresh_token || null, expiresAt, locationId || process.env.GHL_LOCATION_ID]
+    );
+
+    console.log(`✅ GHL install webhook — tokens saved for location ${locationId} (expires ${expiresAt.toISOString()})`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Install webhook DB error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
