@@ -3,12 +3,19 @@ const Anthropic = require('@anthropic-ai/sdk');
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ── Google Imagen 4 image generation ─────────────────────────────────────────
-async function generateStoryImage(headline) {
+// Rotate through visual themes so images aren't all identical
+const IMAGE_THEMES = [
+  'Gold bars stacked on a dark surface, dramatic side lighting, crimson reflections, photorealistic editorial photography, no text, no people',
+  'Crumbling stone pillars with gold coins scattered at their base, dark moody atmosphere, high contrast, photorealistic, no text, no people',
+  'Abstract financial market data visualized as glowing lines descending into darkness, crimson and gold tones, no text, no people',
+  'Stack of worn dollar bills on black marble, single spotlight, deep shadows, photorealistic editorial photography, no text, no people',
+  'Old bank vault door slightly open revealing darkness inside, gold and crimson tones, cinematic lighting, no text, no people',
+];
+
+async function generateStoryImage(headline, index = 0) {
   if (!process.env.GOOGLE_AI_KEY) return null;
   try {
-    const imagePrompt = `Dramatic cinematic dark financial scene: "${headline}". ` +
-      'Deep black background, dark crimson and gold tones, high contrast moody lighting, ' +
-      'photorealistic, professional editorial photography, no text, no words, no people, no faces.';
+    const imagePrompt = IMAGE_THEMES[index % IMAGE_THEMES.length];
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
@@ -28,9 +35,11 @@ async function generateStoryImage(headline) {
     }
 
     const data = await response.json();
-    return data?.predictions?.[0]?.bytesBase64Encoded || null;
+    const b64 = data?.predictions?.[0]?.bytesBase64Encoded || null;
+    if (!b64) console.warn(`Imagen returned no image data for index ${index}. Response: ${JSON.stringify(data).slice(0, 200)}`);
+    return b64;
   } catch (err) {
-    console.warn(`Image generation failed for "${headline.slice(0, 40)}...": ${err.message}`);
+    console.error(`Image generation failed (index ${index}): ${err.message}`);
     return null;
   }
 }
@@ -135,9 +144,9 @@ Output all 5 story blocks back to back. Nothing else.`
     }),
     (async () => {
       const imgs = [];
-      for (const article of articles) {
-        imgs.push(await generateStoryImage(article.title));
-        await new Promise(r => setTimeout(r, 3000));
+      for (let i = 0; i < articles.length; i++) {
+        imgs.push(await generateStoryImage(articles[i].title, i));
+        if (i < articles.length - 1) await new Promise(r => setTimeout(r, 3000));
       }
       return imgs;
     })(),
