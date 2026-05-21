@@ -2,21 +2,21 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// ── Google Imagen 4 image generation ─────────────────────────────────────────
-// Rotate through visual themes so images aren't all identical
+// ── Google Imagen 4 — used ONLY for free teaser newsletter ───────────────────
 const IMAGE_THEMES = [
   'Gold bars stacked on a dark surface, dramatic side lighting, crimson reflections, photorealistic editorial photography, no text, no people',
   'Crumbling stone pillars with gold coins scattered at their base, dark moody atmosphere, high contrast, photorealistic, no text, no people',
   'Abstract financial market data visualized as glowing lines descending into darkness, crimson and gold tones, no text, no people',
   'Stack of worn dollar bills on black marble, single spotlight, deep shadows, photorealistic editorial photography, no text, no people',
   'Old bank vault door slightly open revealing darkness inside, gold and crimson tones, cinematic lighting, no text, no people',
+  'Shattered US dollar bill fragments against black background, dramatic lighting, gold tones, no text, no people',
+  'Pile of gold coins overflowing from a cracked safe, dark background, crimson lighting, no text, no people',
 ];
 
-async function generateStoryImage(headline, index = 0) {
+async function generateStoryImage(index = 0) {
   if (!process.env.GOOGLE_AI_KEY) return null;
   try {
     const imagePrompt = IMAGE_THEMES[index % IMAGE_THEMES.length];
-
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
       {
@@ -24,8 +24,8 @@ async function generateStoryImage(headline, index = 0) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instances: [{ prompt: imagePrompt }],
-          parameters: { sampleCount: 1, aspectRatio: '16:9' }
-        })
+          parameters: { sampleCount: 1, aspectRatio: '16:9' },
+        }),
       }
     );
 
@@ -36,15 +36,15 @@ async function generateStoryImage(headline, index = 0) {
 
     const data = await response.json();
     const b64 = data?.predictions?.[0]?.bytesBase64Encoded || null;
-    if (!b64) console.warn(`Imagen returned no image data for index ${index}. Response: ${JSON.stringify(data).slice(0, 200)}`);
+    if (!b64) console.warn(`Imagen: no image data for index ${index}. Response: ${JSON.stringify(data).slice(0, 200)}`);
     return b64;
   } catch (err) {
-    console.error(`Image generation failed (index ${index}): ${err.message}`);
+    console.error(`Imagen failed (index ${index}): ${err.message}`);
     return null;
   }
 }
 
-// Inject base64 images above each <h2> in the Claude-generated story HTML
+// Inject base64 images above each <h2> in Claude-generated HTML (used for free teaser)
 function injectImages(storiesHTML, images) {
   let idx = 0;
   return storiesHTML.replace(/<h2 /g, (match) => {
@@ -57,7 +57,7 @@ function injectImages(storiesHTML, images) {
 const SYSTEM_PROMPT = `You are a financial intelligence writer for De-Dollarize News. Your tone is urgent, bold, and insider-focused. You write like someone exposing what the establishment doesn't want people to know. Headlines are dramatic and direct. Summaries are 2-3 sentences, punchy, and focused on protecting wealth.`;
 
 const TODAY = () => new Date().toLocaleDateString('en-US', {
-  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
 });
 
 const HEADER_HTML = (today) => `
@@ -83,7 +83,6 @@ const FOOTER_HTML = `
       </p>
     </div>`;
 
-// ── Utility: wrap stories in standard email shell ─────────────────────────────
 function wrapHTML(bodyContent, today) {
   return `<!DOCTYPE html>
 <html>
@@ -104,82 +103,92 @@ ${FOOTER_HTML}
 </html>`;
 }
 
-// ── Function 1: Premium newsletter (full analysis, real links) ────────────────
-async function generatePremiumNewsletter(articles, topics) {
-  const today = TODAY();
-  const topicList = (topics || []).join(', ');
-
-  const articleContext = articles.map((a, i) =>
-    `Article ${i + 1}:\nTitle: ${a.title}\nSource: ${a.source}\nURL: ${a.url}\nSummary: ${a.summary || '(no summary)'}`
-  ).join('\n\n');
-
-  // Claude and images run concurrently — images generated sequentially to avoid rate limits
-  const [response, images] = await Promise.all([
-    client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      system: SYSTEM_PROMPT,
-      messages: [{
-        role: 'user',
-        content: `Write the De-Dollarize News premium newsletter for ${today}.
-
-You have these 5 curated stories:
-
-${articleContext}
-
-For EACH story write a deep, dramatic analysis. Return ONLY the inner story blocks — no <html>/<body> wrapper, just the repeated story divs shown below.
-
-For each story, output this block (fill in [HEADLINE], [DEEP ANALYSIS], [SOURCE URL], [SOURCE NAME]):
-
-    <div style="padding:24px 40px 0;">
-      <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;">
-        <h2 style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
-        <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0 0 10px;">[DEEP ANALYSIS — 3-4 sentences, urgent, wealth-protection focused, expose the establishment angle]</p>
-        <a href="[SOURCE URL]" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL STORY → ([SOURCE NAME])</a>
-      </div>
-    </div>
-
-Output all 5 story blocks back to back. Nothing else.`
-      }]
-    }),
-    (async () => {
-      const imgs = [];
-      for (let i = 0; i < articles.length; i++) {
-        imgs.push(await generateStoryImage(articles[i].title, i));
-        if (i < articles.length - 1) await new Promise(r => setTimeout(r, 3000));
-      }
-      return imgs;
-    })(),
-  ]);
-
-  const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const storiesHTML = injectImages(rawStoriesHTML, images);
-  const html = wrapHTML(storiesHTML, today);
-
-  const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
-  const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News Alert';
-  const subject = `ALERT: ${firstHeadline.substring(0, 65)}`;
-
-  return { subject, html };
+// ── Extract JSON array from Claude response (handles code block wrappers) ─────
+function extractJSONArray(text) {
+  const match = text.match(/\[[\s\S]*\]/);
+  if (match) {
+    try { return JSON.parse(match[0]); } catch (_) {}
+  }
+  return null;
 }
 
-// ── Function 2: Free teaser newsletter (headlines + 2 sentences + CTA) ───────
-async function generateFreeNewsletter(articles) {
+// ── Function 1: Premium newsletter — WP featured images, Claude summaries ─────
+// articles: [{ title, excerpt, url, imageUrl, publishedTime, source }]
+async function generatePremiumNewsletter(articles, _topics) {
   const today = TODAY();
 
   const articleContext = articles.map((a, i) =>
-    `Article ${i + 1}:\nTitle: ${a.title}\nSummary: ${a.summary || '(no summary)'}`
+    `Article ${i + 1}:\nTitle: ${a.title}\nExcerpt: ${a.excerpt || a.summary || '(no excerpt)'}`
   ).join('\n\n');
 
+  // Claude writes only the summary text — we build the HTML
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 2000,
     system: SYSTEM_PROMPT,
     messages: [{
       role: 'user',
-      content: `Write the De-Dollarize News FREE teaser newsletter for ${today}.
+      content: `Write a 2-3 sentence urgent, wealth-protection email summary for each article below. Expose what the establishment is hiding. Make readers feel the urgency to act now.
 
-You have these 5 stories:
+${articleContext}
+
+Return ONLY a valid JSON array of strings — one summary per article, in order. No other text.
+["Summary 1...", "Summary 2...", ...]`,
+    }],
+  });
+
+  const rawText = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  const summaries = extractJSONArray(rawText) || [];
+
+  // Build story blocks — WP featured image above each story card
+  const storiesHTML = articles.map((article, i) => {
+    const summary = typeof summaries[i] === 'string' ? summaries[i] : (article.excerpt || article.summary || '');
+    const imageHtml = article.imageUrl
+      ? `<img src="${article.imageUrl}" style="width:100%;height:220px;object-fit:cover;display:block;margin-bottom:0;border-radius:4px 4px 0 0;" alt="">`
+      : '';
+    const timeHtml = article.publishedTime
+      ? `<p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:0.5px;margin:0 0 6px;text-transform:uppercase;">${article.publishedTime}</p>`
+      : '';
+
+    return `
+    <div style="padding:24px 40px 0;">
+      ${imageHtml}
+      <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;${article.imageUrl ? 'padding-top:12px;' : ''}">
+        ${timeHtml}
+        <h2 style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">${article.title}</h2>
+        <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0 0 10px;">${summary}</p>
+        <a href="${article.url}" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL ANALYSIS →</a>
+      </div>
+    </div>`;
+  }).join('\n');
+
+  const html = wrapHTML(storiesHTML, today);
+
+  // Subject: first article (most recent from WP, ordered newest-first)
+  const subject = `ALERT: ${articles[0].title.substring(0, 65)}`;
+
+  return { subject, html };
+}
+
+// ── Function 2: Free teaser — Imagen images, 2-sentence teasers + CTA ────────
+async function generateFreeNewsletter(articles) {
+  const today = TODAY();
+
+  const articleContext = articles.map((a, i) =>
+    `Article ${i + 1}:\nTitle: ${a.title}\nSummary: ${a.excerpt || a.summary || '(no summary)'}`
+  ).join('\n\n');
+
+  // Run Claude and Imagen concurrently
+  const [response, images] = await Promise.all([
+    client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: `Write the De-Dollarize News FREE teaser newsletter for ${today}.
+
+You have these ${articles.length} stories:
 
 ${articleContext}
 
@@ -194,7 +203,7 @@ For each story, output this block:
       </div>
     </div>
 
-Output all 5 teaser blocks back to back, then output this CTA block exactly as written:
+Output all ${articles.length} teaser blocks back to back, then output this CTA block exactly as written:
 
     <div style="padding:24px 40px 32px;text-align:center;">
       <a href="https://dedollarizenews.com/upgrade" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:18px 32px;border-radius:6px;font-weight:900;font-size:15px;letter-spacing:.5px;line-height:1.5;">
@@ -202,11 +211,22 @@ Output all 5 teaser blocks back to back, then output this CTA block exactly as w
         <span style="font-weight:300;font-size:13px;">Upgrade to Inner Circle →</span><br>
         <span style="font-weight:300;font-size:12px;opacity:.85;">Get the complete analysis, real sources,<br>and everything they don't want you to know</span>
       </a>
-    </div>`
-    }]
-  });
+    </div>`,
+      }],
+    }),
+    // Imagen images — sequential with delay to avoid rate limits
+    (async () => {
+      const imgs = [];
+      for (let i = 0; i < articles.length; i++) {
+        imgs.push(await generateStoryImage(i));
+        if (i < articles.length - 1) await new Promise(r => setTimeout(r, 3000));
+      }
+      return imgs;
+    })(),
+  ]);
 
-  const storiesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  const storiesHTML = injectImages(rawStoriesHTML, images);
   const html = wrapHTML(storiesHTML, today);
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
@@ -216,7 +236,7 @@ Output all 5 teaser blocks back to back, then output this CTA block exactly as w
   return { subject, html };
 }
 
-// ── Legacy: web-search-based generation (fallback when no articles in DB) ─────
+// ── Legacy: web-search-based generation (used in admin preview fallback) ──────
 async function generateNewsletter(topics) {
   const today = TODAY();
   const topicList = topics.join(', ');
@@ -230,10 +250,8 @@ async function generateNewsletter(topics) {
     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
     messages: [{
       role: 'user',
-      content: `Search for the latest news today (${today}) on these topics: ${topicList}.
-      Find 5-7 of the most important, alarming, or revealing stories.
-      For each story get the headline, a brief summary, and the source URL.`
-    }]
+      content: `Search for the latest news today (${today}) on these topics: ${topicList}. Find 5-7 of the most important, alarming, or revealing stories. For each story get the headline, a brief summary, and the source URL.`,
+    }],
   });
 
   const searchSummary = searchResponse.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
@@ -262,8 +280,8 @@ Return ONLY the inner story blocks (no html/body wrapper). For each story:
       </div>
     </div>
 
-Fill in all stories. Make every headline dramatic and urgent.`
-    }]
+Fill in all stories. Make every headline dramatic and urgent.`,
+    }],
   });
 
   const storiesHTML = newsletterResponse.content.filter(b => b.type === 'text').map(b => b.text).join('');

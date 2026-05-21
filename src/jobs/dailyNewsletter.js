@@ -1,44 +1,11 @@
 const cron = require('node-cron');
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
+const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
 const { getContactsByTag } = require('../ghl');
 const { sendEmail, sendBulk } = require('../email');
 
-const PREMIUM_TAG = 'active-inner-circle-newsletter';
-const FREE_TAG    = 'lead-source-inner-circle';
-
-// ── Fetch today's approved articles, auto-approving top 5 if needed ──────────
-async function getArticlesForToday() {
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
-  const { rows: approved } = await db.query(
-    `SELECT * FROM daily_articles
-     WHERE approved = true AND created_at >= $1
-     ORDER BY score DESC LIMIT 5`,
-    [todayStart.toISOString()]
-  );
-
-  if (approved.length >= 1) return approved;
-
-  console.log('No approved articles — auto-approving top 5 by score...');
-  const { rows: top5 } = await db.query(
-    `SELECT * FROM daily_articles
-     WHERE created_at >= $1
-     ORDER BY score DESC LIMIT 5`,
-    [todayStart.toISOString()]
-  );
-
-  if (top5.length === 0) return [];
-
-  const ids = top5.map(a => a.id);
-  await db.query(
-    `UPDATE daily_articles SET approved = true WHERE id = ANY($1::uuid[])`,
-    [ids]
-  );
-  console.log(`Auto-approved ${top5.length} articles`);
-  return top5;
-}
+const FREE_TAG = 'lead-source-inner-circle';
 
 // ── Premium: Neon DB active subscribers (source of truth for paid) ───────────
 async function getPremiumRecipients() {
@@ -56,22 +23,16 @@ async function getFreeRecipients() {
     .filter(c => c.email);
 }
 
-// ── Test send: single email to confirm SES is working ────────────────────────
+// ── Test send: single email to confirm SES + WP pipeline is working ──────────
 async function runTestSend(toEmail) {
   console.log(`🧪 Test send to ${toEmail}...`);
 
-  const topics = (process.env.NEWSLETTER_TOPICS || 'AI tools,automation,AI agents')
-    .split(',').map(t => t.trim());
+  const articles = await fetchArticlesForNewsletter();
+  if (articles.length === 0) throw new Error('No articles available for test send');
 
-  const articles = await getArticlesForToday();
+  console.log(`Test send using ${articles.length} articles from ${articles[0]?.source || 'unknown'}`);
 
-  let result;
-  if (articles.length > 0) {
-    result = await generatePremiumNewsletter(articles, topics);
-  } else {
-    result = await generateNewsletter(topics);
-  }
-
+  const result = await generatePremiumNewsletter(articles);
   await sendEmail({ to: toEmail, subject: `[TEST] ${result.subject}`, html: result.html });
   console.log(`✅ Test email sent to ${toEmail}`);
   return result;
@@ -81,26 +42,19 @@ async function runTestSend(toEmail) {
 async function runDailyNewsletter() {
   console.log('📰 Starting daily newsletter job...');
 
-  const topics = (process.env.NEWSLETTER_TOPICS || 'dollar devaluation,BRICS,gold,inflation')
-    .split(',').map(t => t.trim());
-
-  const dateLabel = new Date().toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric'
-  });
-
   try {
-    const articles = await getArticlesForToday();
+    // 1. Fetch today's articles from dedollarizenews.com (RSS fallback if none)
+    const articles = await fetchArticlesForNewsletter();
 
-    // ── Premium campaign ───────────────────────────────────────────────────────
-    let premiumResult;
-    if (articles.length > 0) {
-      premiumResult = await generatePremiumNewsletter(articles, topics);
-    } else {
-      console.log('No articles in DB — falling back to web search');
-      premiumResult = await generateNewsletter(topics);
+    if (articles.length === 0) {
+      console.error('❌ No articles found anywhere — newsletter cancelled');
+      return;
     }
+    console.log(`📄 ${articles.length} articles for today's newsletter`);
 
-    // ── Premium: Neon DB active subscribers ──────────────────────────────────
+    // 2. Premium: WP featured images, Claude summaries
+    const premiumResult = await generatePremiumNewsletter(articles);
+
     const premiumContacts = await getPremiumRecipients();
     console.log(`📧 Premium recipients from DB: ${premiumContacts.length}`);
     if (premiumContacts.length === 0) console.warn('⚠️  No active subscribers found in DB — sent_to will be 0');
@@ -111,37 +65,32 @@ async function runDailyNewsletter() {
     await db.query(
       `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
        VALUES ($1, $2, $3, $4, 'premium')`,
-      [premiumResult.subject, premiumResult.html, premiumSend.sent, topics]
+      [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com']]
     );
 
-    // ── Free teaser campaign ───────────────────────────────────────────────────
-    if (articles.length === 0) {
-      console.log('No articles for free teaser, skipping.');
-    } else {
-      const freeResult = await generateFreeNewsletter(articles);
+    // 3. Free teaser: Imagen images, 2-sentence teasers
+    const freeResult = await generateFreeNewsletter(articles);
 
-      // ── Free: GHL contacts with lead tag ───────────────────────────────────
-      let freeContacts = [];
-      try {
-        freeContacts = await getFreeRecipients();
-      } catch (err) {
-        console.warn(`⚠️  GHL free contacts failed (${err.message}) — skipping free teaser`);
-      }
-      console.log(`📧 Free recipients from GHL: ${freeContacts.length}`);
-
-      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
-      console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
-
-      await db.query(
-        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
-         VALUES ($1, $2, $3, $4, 'free')`,
-        [freeResult.subject, freeResult.html, freeSend.sent, topics]
-      );
+    let freeContacts = [];
+    try {
+      freeContacts = await getFreeRecipients();
+    } catch (err) {
+      console.warn(`⚠️  GHL free contacts failed (${err.message}) — skipping free teaser`);
     }
+    console.log(`📧 Free recipients from GHL: ${freeContacts.length}`);
+
+    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
+    console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
+
+    await db.query(
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
+       VALUES ($1, $2, $3, $4, 'free')`,
+      [freeResult.subject, freeResult.html, freeSend.sent, ['dedollarizenews.com']]
+    );
 
     console.log('✅ Daily newsletter job complete.');
   } catch (err) {
-    console.error('❌ Newsletter job failed:', err.message);
+    console.error('❌ Newsletter job failed:', err.message, err.stack);
   }
 }
 
