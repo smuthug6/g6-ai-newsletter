@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { runDailyNewsletter } = require('../jobs/dailyNewsletter');
+const { runDailyNewsletter, runTestSend } = require('../jobs/dailyNewsletter');
 
 function adminAuth(req, res, next) {
   const token = req.headers['x-admin-token'] || req.query.token;
@@ -183,6 +183,18 @@ router.post('/preview/free', adminAuth, async (req, res) => {
 router.post('/send-now', adminAuth, async (req, res) => {
   res.json({ message: 'Newsletter send started in background' });
   runDailyNewsletter();
+});
+
+// ── Test send — single email to confirm SES is working ───────────────────────
+router.post('/test-send', adminAuth, async (req, res) => {
+  const { to } = req.body;
+  if (!to) return res.status(400).json({ error: 'to email is required' });
+  try {
+    await runTestSend(to);
+    res.json({ success: true, message: `Test email sent to ${to}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

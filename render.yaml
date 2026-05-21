@@ -37,3 +37,9 @@ services:
         sync: false
       - key: GHL_EMAIL_SERVICE_ID
         sync: false
+      - key: SES_SMTP_USERNAME
+        sync: false
+      - key: SES_SMTP_PASSWORD
+        sync: false
+      - key: SES_FROM_EMAIL
+        value: newsletter@mail.dedollarizenews.com

@@ -1,7 +1,8 @@
 const cron = require('node-cron');
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { sendCampaignToTag } = require('../ghl');
+const { getContactsByTag } = require('../ghl');
+const { sendEmail, sendBulk } = require('../email');
 
 const PREMIUM_TAG = 'active-inner-circle-newsletter';
 const FREE_TAG    = 'lead-source-inner-circle';
@@ -39,6 +40,27 @@ async function getArticlesForToday() {
   return top5;
 }
 
+// ── Test send: single email to confirm SES is working ────────────────────────
+async function runTestSend(toEmail) {
+  console.log(`🧪 Test send to ${toEmail}...`);
+
+  const topics = (process.env.NEWSLETTER_TOPICS || 'AI tools,automation,AI agents')
+    .split(',').map(t => t.trim());
+
+  const articles = await getArticlesForToday();
+
+  let result;
+  if (articles.length > 0) {
+    result = await generatePremiumNewsletter(articles, topics);
+  } else {
+    result = await generateNewsletter(topics);
+  }
+
+  await sendEmail({ to: toEmail, subject: `[TEST] ${result.subject}`, html: result.html });
+  console.log(`✅ Test email sent to ${toEmail}`);
+  return result;
+}
+
 // ── Main daily newsletter job ─────────────────────────────────────────────────
 async function runDailyNewsletter() {
   console.log('📰 Starting daily newsletter job...');
@@ -62,12 +84,12 @@ async function runDailyNewsletter() {
       premiumResult = await generateNewsletter(topics);
     }
 
-    const premiumSend = await sendCampaignToTag({
-      name:    `De-Dollarize Premium - ${dateLabel}`,
-      tag:     PREMIUM_TAG,
-      subject: premiumResult.subject,
-      html:    premiumResult.html,
-    });
+    console.log(`📧 Fetching premium contacts [${PREMIUM_TAG}]...`);
+    const premiumContacts = await getContactsByTag(PREMIUM_TAG);
+    console.log(`   Found ${premiumContacts.length} premium contacts`);
+
+    const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
+    console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
 
     await db.query(
       `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
@@ -81,12 +103,12 @@ async function runDailyNewsletter() {
     } else {
       const freeResult = await generateFreeNewsletter(articles);
 
-      const freeSend = await sendCampaignToTag({
-        name:    `De-Dollarize Free - ${dateLabel}`,
-        tag:     FREE_TAG,
-        subject: freeResult.subject,
-        html:    freeResult.html,
-      });
+      console.log(`📧 Fetching free contacts [${FREE_TAG}]...`);
+      const freeContacts = await getContactsByTag(FREE_TAG);
+      console.log(`   Found ${freeContacts.length} free contacts`);
+
+      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
+      console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
 
       await db.query(
         `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
@@ -108,4 +130,4 @@ function startCronJob() {
   cron.schedule(schedule, runDailyNewsletter, { timezone: 'UTC' });
 }
 
-module.exports = { startCronJob, runDailyNewsletter };
+module.exports = { startCronJob, runDailyNewsletter, runTestSend };

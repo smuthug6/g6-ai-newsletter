@@ -70,7 +70,7 @@ const FOOTER_HTML = `
     <div style="background:#0a0a0a;padding:28px 40px;margin-top:32px;border-top:1px solid #cc0000;">
       <p style="color:#555555;font-size:12px;text-align:center;margin:0;line-height:1.8;">
         Protecting your wealth from the system. dedollarizenews.com<br>
-        <a href="{{unsubscribe}}" style="color:#555555;">Unsubscribe</a>
+        <a href="https://dedollarizenews.com/unsubscribe" style="color:#555555;">Unsubscribe</a>
       </p>
     </div>`;
 
