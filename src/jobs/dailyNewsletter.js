@@ -40,6 +40,47 @@ async function getArticlesForToday() {
   return top5;
 }
 
+// ── Build recipient list: GHL tag contacts + Neon subscribers (deduplicated) ──
+async function getRecipientsForTier(tier, ghlTag) {
+  const emails = new Set();
+  const recipients = [];
+
+  // 1. Try GHL contacts by tag
+  try {
+    const ghlContacts = await getContactsByTag(ghlTag);
+    for (const c of ghlContacts) {
+      const email = (c.email || c.emailAddress || '').toLowerCase().trim();
+      if (email && !emails.has(email)) {
+        emails.add(email);
+        recipients.push({ email });
+      }
+    }
+    console.log(`   GHL tag [${ghlTag}]: ${ghlContacts.length} contacts`);
+  } catch (err) {
+    console.warn(`   ⚠️  GHL fetch failed (${err.message}) — using DB subscribers only`);
+  }
+
+  // 2. Always include Neon DB subscribers for this tier
+  try {
+    const { rows } = await db.query(
+      `SELECT email FROM subscribers WHERE status = 'active' AND ($1 = 'premium' OR $1 = 'free')`,
+      [tier]
+    );
+    for (const row of rows) {
+      const email = row.email.toLowerCase().trim();
+      if (!emails.has(email)) {
+        emails.add(email);
+        recipients.push({ email });
+      }
+    }
+    console.log(`   DB subscribers: ${rows.length} active`);
+  } catch (err) {
+    console.warn(`   ⚠️  DB subscriber fetch failed: ${err.message}`);
+  }
+
+  return recipients;
+}
+
 // ── Test send: single email to confirm SES is working ────────────────────────
 async function runTestSend(toEmail) {
   console.log(`🧪 Test send to ${toEmail}...`);
@@ -84,9 +125,10 @@ async function runDailyNewsletter() {
       premiumResult = await generateNewsletter(topics);
     }
 
+    // ── Resolve premium recipient list ────────────────────────────────────────
     console.log(`📧 Fetching premium contacts [${PREMIUM_TAG}]...`);
-    const premiumContacts = await getContactsByTag(PREMIUM_TAG);
-    console.log(`   Found ${premiumContacts.length} premium contacts`);
+    const premiumContacts = await getRecipientsForTier('premium', PREMIUM_TAG);
+    console.log(`   Found ${premiumContacts.length} premium recipients`);
 
     const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
     console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
@@ -104,8 +146,8 @@ async function runDailyNewsletter() {
       const freeResult = await generateFreeNewsletter(articles);
 
       console.log(`📧 Fetching free contacts [${FREE_TAG}]...`);
-      const freeContacts = await getContactsByTag(FREE_TAG);
-      console.log(`   Found ${freeContacts.length} free contacts`);
+      const freeContacts = await getRecipientsForTier('free', FREE_TAG);
+      console.log(`   Found ${freeContacts.length} free recipients`);
 
       const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
       console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
