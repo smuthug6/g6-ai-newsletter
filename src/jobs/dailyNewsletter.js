@@ -120,7 +120,12 @@ async function runDailyNewsletter() {
       const freeResult = await generateFreeNewsletter(articles);
 
       // ── Free: GHL contacts with lead tag ───────────────────────────────────
-      const freeContacts = await getFreeRecipients();
+      let freeContacts = [];
+      try {
+        freeContacts = await getFreeRecipients();
+      } catch (err) {
+        console.warn(`⚠️  GHL free contacts failed (${err.message}) — skipping free teaser`);
+      }
       console.log(`📧 Free recipients from GHL: ${freeContacts.length}`);
 
       const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
