@@ -4,6 +4,7 @@ const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
 const { runDailyNewsletter, runTestSend } = require('../jobs/dailyNewsletter');
 const { testSesConnection } = require('../email');
+const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
 
 function adminAuth(req, res, next) {
   const token = req.headers['x-admin-token'] || req.query.token;
@@ -135,47 +136,31 @@ router.post('/approve-top5', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Previews ─────────────────────────────────────────────────────────────────
-router.post('/preview', adminAuth, async (req, res) => {
-  try {
-    const topics = (process.env.NEWSLETTER_TOPICS || 'dollar devaluation,BRICS,gold,inflation')
-      .split(',').map(t => t.trim());
-    const result = await generateNewsletter(topics);
-    res.json(result);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
+// ── Previews — both use live WP articles (same source as actual send) ─────────
 router.post('/preview/premium', adminAuth, async (req, res) => {
   try {
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const { rows } = await db.query(
-      `SELECT * FROM daily_articles WHERE approved = true AND created_at >= $1 ORDER BY score DESC LIMIT 5`,
-      [todayStart.toISOString()]
-    );
-    const topics = (process.env.NEWSLETTER_TOPICS || 'dollar devaluation,BRICS,gold,inflation')
-      .split(',').map(t => t.trim());
-
-    let result;
-    if (rows.length > 0) {
-      result = await generatePremiumNewsletter(rows, topics);
-    } else {
-      result = await generateNewsletter(topics);
-    }
+    const articles = await fetchArticlesForNewsletter();
+    if (articles.length === 0) return res.status(404).json({ error: 'No articles found for today.' });
+    const result = await generatePremiumNewsletter(articles);
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.post('/preview/free', adminAuth, async (req, res) => {
   try {
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const { rows } = await db.query(
-      `SELECT * FROM daily_articles WHERE approved = true AND created_at >= $1 ORDER BY score DESC LIMIT 5`,
-      [todayStart.toISOString()]
-    );
-    if (rows.length === 0) return res.status(404).json({ error: 'No approved articles for today. Approve articles first.' });
-    const result = await generateFreeNewsletter(rows);
+    const articles = await fetchArticlesForNewsletter();
+    if (articles.length === 0) return res.status(404).json({ error: 'No articles found for today.' });
+    const result = await generateFreeNewsletter(articles);
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Legacy web-search preview (kept for fallback)
+router.post('/preview', adminAuth, async (req, res) => {
+  try {
+    const topics = (process.env.NEWSLETTER_TOPICS || 'dollar devaluation,BRICS,gold,inflation')
+      .split(',').map(t => t.trim());
+    const result = await generateNewsletter(topics);
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
