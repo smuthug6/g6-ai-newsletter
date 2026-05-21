@@ -40,45 +40,20 @@ async function getArticlesForToday() {
   return top5;
 }
 
-// ── Build recipient list: GHL tag contacts + Neon subscribers (deduplicated) ──
-async function getRecipientsForTier(tier, ghlTag) {
-  const emails = new Set();
-  const recipients = [];
+// ── Premium: Neon DB active subscribers (source of truth for paid) ───────────
+async function getPremiumRecipients() {
+  const { rows } = await db.query(
+    `SELECT email FROM subscribers WHERE status = 'active'`
+  );
+  return rows.map(r => ({ email: r.email }));
+}
 
-  // 1. Try GHL contacts by tag
-  try {
-    const ghlContacts = await getContactsByTag(ghlTag);
-    for (const c of ghlContacts) {
-      const email = (c.email || c.emailAddress || '').toLowerCase().trim();
-      if (email && !emails.has(email)) {
-        emails.add(email);
-        recipients.push({ email });
-      }
-    }
-    console.log(`   GHL tag [${ghlTag}]: ${ghlContacts.length} contacts`);
-  } catch (err) {
-    console.warn(`   ⚠️  GHL fetch failed (${err.message}) — using DB subscribers only`);
-  }
-
-  // 2. Always include Neon DB subscribers for this tier
-  try {
-    const { rows } = await db.query(
-      `SELECT email FROM subscribers WHERE status = 'active' AND ($1 = 'premium' OR $1 = 'free')`,
-      [tier]
-    );
-    for (const row of rows) {
-      const email = row.email.toLowerCase().trim();
-      if (!emails.has(email)) {
-        emails.add(email);
-        recipients.push({ email });
-      }
-    }
-    console.log(`   DB subscribers: ${rows.length} active`);
-  } catch (err) {
-    console.warn(`   ⚠️  DB subscriber fetch failed: ${err.message}`);
-  }
-
-  return recipients;
+// ── Free: GHL contacts with lead tag ─────────────────────────────────────────
+async function getFreeRecipients() {
+  const contacts = await getContactsByTag(FREE_TAG);
+  return contacts
+    .map(c => ({ email: (c.email || c.emailAddress || '').trim() }))
+    .filter(c => c.email);
 }
 
 // ── Test send: single email to confirm SES is working ────────────────────────
@@ -125,10 +100,9 @@ async function runDailyNewsletter() {
       premiumResult = await generateNewsletter(topics);
     }
 
-    // ── Resolve premium recipient list ────────────────────────────────────────
-    console.log(`📧 Fetching premium contacts [${PREMIUM_TAG}]...`);
-    const premiumContacts = await getRecipientsForTier('premium', PREMIUM_TAG);
-    console.log(`   Found ${premiumContacts.length} premium recipients`);
+    // ── Premium: Neon DB active subscribers ──────────────────────────────────
+    const premiumContacts = await getPremiumRecipients();
+    console.log(`📧 Premium recipients from DB: ${premiumContacts.length}`);
 
     const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
     console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
@@ -145,9 +119,9 @@ async function runDailyNewsletter() {
     } else {
       const freeResult = await generateFreeNewsletter(articles);
 
-      console.log(`📧 Fetching free contacts [${FREE_TAG}]...`);
-      const freeContacts = await getRecipientsForTier('free', FREE_TAG);
-      console.log(`   Found ${freeContacts.length} free recipients`);
+      // ── Free: GHL contacts with lead tag ───────────────────────────────────
+      const freeContacts = await getFreeRecipients();
+      console.log(`📧 Free recipients from GHL: ${freeContacts.length}`);
 
       const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
       console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
