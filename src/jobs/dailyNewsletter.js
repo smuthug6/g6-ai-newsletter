@@ -1,17 +1,16 @@
 const cron = require('node-cron');
 const db = require('../supabase');
-const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
+const { generatePremiumNewsletter, generateFreeNewsletter } = require('../newsletter');
 const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
+const { runContentAggregator, autoApproveTop5 } = require('./contentAggregator');
 const { getContactsByTag } = require('../ghl');
 const { sendEmail, sendBulk } = require('../email');
 
 const FREE_TAG = 'lead-source-inner-circle';
 
-// ── Premium: Neon DB active subscribers (source of truth for paid) ───────────
+// ── Premium: Neon DB active subscribers ──────────────────────────────────────
 async function getPremiumRecipients() {
-  const { rows } = await db.query(
-    `SELECT email FROM subscribers WHERE status = 'active'`
-  );
+  const { rows } = await db.query(`SELECT email FROM subscribers WHERE status = 'active'`);
   return rows.map(r => ({ email: r.email }));
 }
 
@@ -23,70 +22,103 @@ async function getFreeRecipients() {
     .filter(c => c.email);
 }
 
-// ── Test send: single email to confirm SES + WP pipeline is working ──────────
+// ── Get today's approved articles from content queue (for free teaser) ───────
+async function getApprovedQueueArticles() {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const { rows } = await db.query(
+    `SELECT * FROM daily_articles
+     WHERE approved = true AND created_at >= $1
+     ORDER BY score DESC LIMIT 5`,
+    [todayStart.toISOString()]
+  );
+  return rows;
+}
+
+// ── Test send: premium newsletter to a single address ────────────────────────
 async function runTestSend(toEmail) {
   console.log(`🧪 Test send to ${toEmail}...`);
-
   const articles = await fetchArticlesForNewsletter();
   if (articles.length === 0) throw new Error('No articles available for test send');
-
-  console.log(`Test send using ${articles.length} articles from ${articles[0]?.source || 'unknown'}`);
-
   const result = await generatePremiumNewsletter(articles);
   await sendEmail({ to: toEmail, subject: `[TEST] ${result.subject}`, html: result.html });
   console.log(`✅ Test email sent to ${toEmail}`);
   return result;
 }
 
-// ── Main daily newsletter job ─────────────────────────────────────────────────
+// ── 7:00am UTC: fetch Dream 100 + run Grok + save to queue ───────────────────
+async function runAggregatorJob() {
+  console.log('⏰ 7:00am — Running content aggregator + Grok ranking...');
+  try {
+    await runContentAggregator();
+    console.log('✅ Content queue updated with Grok top 10');
+  } catch (err) {
+    console.error('❌ Content aggregator failed:', err.message);
+  }
+}
+
+// ── 7:55am UTC: auto-approve top 5 if boss hasn't approved yet ───────────────
+async function runAutoApproveJob() {
+  console.log('⏰ 7:55am — Auto-approving top 5 if not manually approved...');
+  try {
+    await autoApproveTop5();
+  } catch (err) {
+    console.error('❌ Auto-approve failed:', err.message);
+  }
+}
+
+// ── 8:00am UTC: send both newsletters ────────────────────────────────────────
 async function runDailyNewsletter() {
   console.log('📰 Starting daily newsletter job...');
 
   try {
-    // 1. Fetch today's articles from dedollarizenews.com (RSS fallback if none)
-    const articles = await fetchArticlesForNewsletter();
+    // ── PREMIUM: dedollarizenews.com articles with real WP images ─────────────
+    const wpArticles = await fetchArticlesForNewsletter();
+    if (wpArticles.length === 0) {
+      console.error('❌ No WP articles found — premium newsletter cancelled');
+    } else {
+      console.log(`📄 ${wpArticles.length} articles from dedollarizenews.com`);
+      const premiumResult = await generatePremiumNewsletter(wpArticles);
 
-    if (articles.length === 0) {
-      console.error('❌ No articles found anywhere — newsletter cancelled');
-      return;
+      const premiumContacts = await getPremiumRecipients();
+      console.log(`📧 Premium recipients: ${premiumContacts.length}`);
+      if (premiumContacts.length === 0) console.warn('⚠️  No active subscribers in DB');
+
+      const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
+      console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}${premiumSend.firstError ? `, error: ${premiumSend.firstError}` : ''}`);
+
+      await db.query(
+        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
+         VALUES ($1, $2, $3, $4, 'premium')`,
+        [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com']]
+      );
     }
-    console.log(`📄 ${articles.length} articles for today's newsletter`);
 
-    // 2. Premium: WP featured images, Claude summaries
-    const premiumResult = await generatePremiumNewsletter(articles);
+    // ── FREE TEASER: approved content queue (Dream 100 + Grok ranked) ─────────
+    const queueArticles = await getApprovedQueueArticles();
+    if (queueArticles.length === 0) {
+      console.warn('⚠️  No approved articles in queue — skipping free teaser');
+    } else {
+      console.log(`📄 ${queueArticles.length} approved articles for free teaser`);
+      const freeResult = await generateFreeNewsletter(queueArticles);
 
-    const premiumContacts = await getPremiumRecipients();
-    console.log(`📧 Premium recipients from DB: ${premiumContacts.length}`);
-    if (premiumContacts.length === 0) console.warn('⚠️  No active subscribers found in DB — sent_to will be 0');
+      let freeContacts = [];
+      try {
+        freeContacts = await getFreeRecipients();
+      } catch (err) {
+        console.warn(`⚠️  GHL contacts failed (${err.message}) — skipping free send`);
+      }
+      console.log(`📧 Free recipients: ${freeContacts.length}`);
 
-    const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
-    console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}${premiumSend.firstError ? `, first error: ${premiumSend.firstError}` : ''}`);
+      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
+      console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
 
-    await db.query(
-      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
-       VALUES ($1, $2, $3, $4, 'premium')`,
-      [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com']]
-    );
-
-    // 3. Free teaser: Imagen images, 2-sentence teasers
-    const freeResult = await generateFreeNewsletter(articles);
-
-    let freeContacts = [];
-    try {
-      freeContacts = await getFreeRecipients();
-    } catch (err) {
-      console.warn(`⚠️  GHL free contacts failed (${err.message}) — skipping free teaser`);
+      await db.query(
+        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
+         VALUES ($1, $2, $3, $4, 'free')`,
+        [freeResult.subject, freeResult.html, freeSend.sent, ['dream100']]
+      );
     }
-    console.log(`📧 Free recipients from GHL: ${freeContacts.length}`);
-
-    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
-    console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
-
-    await db.query(
-      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
-       VALUES ($1, $2, $3, $4, 'free')`,
-      [freeResult.subject, freeResult.html, freeSend.sent, ['dedollarizenews.com']]
-    );
 
     console.log('✅ Daily newsletter job complete.');
   } catch (err) {
@@ -94,11 +126,20 @@ async function runDailyNewsletter() {
   }
 }
 
-// ── Cron wiring (called from index.js) ───────────────────────────────────────
+// ── Cron wiring ───────────────────────────────────────────────────────────────
 function startCronJob() {
+  // 7:00am UTC — fetch Dream 100, run Grok, save top 10 to queue
+  cron.schedule('0 7 * * *', runAggregatorJob, { timezone: 'UTC' });
+  console.log('📅 Cron: content aggregator at 7:00am UTC');
+
+  // 7:55am UTC — auto-approve top 5 if not manually approved
+  cron.schedule('55 7 * * *', runAutoApproveJob, { timezone: 'UTC' });
+  console.log('📅 Cron: auto-approve at 7:55am UTC');
+
+  // 8:00am UTC — send both newsletters
   const schedule = process.env.CRON_SCHEDULE || '0 8 * * *';
-  console.log(`📅 Newsletter cron scheduled: ${schedule}`);
   cron.schedule(schedule, runDailyNewsletter, { timezone: 'UTC' });
+  console.log(`📅 Cron: newsletter send at ${schedule} UTC`);
 }
 
-module.exports = { startCronJob, runDailyNewsletter, runTestSend };
+module.exports = { startCronJob, runDailyNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob };

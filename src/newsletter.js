@@ -205,12 +205,13 @@ For each story, output this block:
 
 Output all ${articles.length} teaser blocks back to back, then output this CTA block exactly as written:
 
-    <div style="padding:24px 40px 32px;text-align:center;">
-      <a href="https://dedollarizenews.com/upgrade" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:18px 32px;border-radius:6px;font-weight:900;font-size:15px;letter-spacing:.5px;line-height:1.5;">
-        🔓 UNLOCK THE FULL INTEL<br>
-        <span style="font-weight:300;font-size:13px;">Upgrade to Inner Circle →</span><br>
-        <span style="font-weight:300;font-size:12px;opacity:.85;">Get the complete analysis, real sources,<br>and everything they don't want you to know</span>
+    <div style="padding:32px 40px;text-align:center;background:#f9f9f9;margin-top:8px;border-top:3px solid #cc0000;">
+      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">MEMBERS ONLY</p>
+      <a href="https://dedollarizenews.com/upgrade" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
+        GET OUR EXCLUSIVE DAILY ANALYSIS →<br>
+        <span style="font-weight:400;font-size:13px;opacity:.9;">Subscribe to Inner Circle for dedollarizenews.com<br>premium content delivered daily</span>
       </a>
+      <p style="color:#999999;font-size:12px;margin:16px 0 0;">Full analysis · Real sources · Wealth protection strategies</p>
     </div>`,
       }],
     }),

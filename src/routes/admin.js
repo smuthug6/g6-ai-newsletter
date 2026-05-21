@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { runDailyNewsletter, runTestSend } = require('../jobs/dailyNewsletter');
+const { runDailyNewsletter, runTestSend, runAggregatorJob } = require('../jobs/dailyNewsletter');
 const { testSesConnection } = require('../email');
 const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
 
@@ -136,33 +136,43 @@ router.post('/approve-top5', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Previews — both use live WP articles (same source as actual send) ─────────
+// ── Preview Premium — live dedollarizenews.com WP articles ────────────────────
 router.post('/preview/premium', adminAuth, async (req, res) => {
   try {
     const articles = await fetchArticlesForNewsletter();
-    if (articles.length === 0) return res.status(404).json({ error: 'No articles found for today.' });
+    if (articles.length === 0) return res.status(404).json({ error: 'No articles found on dedollarizenews.com today.' });
     const result = await generatePremiumNewsletter(articles);
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Preview Free Teaser — approved content queue (Dream 100 + Grok) ───────────
 router.post('/preview/free', adminAuth, async (req, res) => {
   try {
-    const articles = await fetchArticlesForNewsletter();
-    if (articles.length === 0) return res.status(404).json({ error: 'No articles found for today.' });
-    const result = await generateFreeNewsletter(articles);
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const { rows } = await db.query(
+      `SELECT * FROM daily_articles WHERE approved = true AND created_at >= $1 ORDER BY score DESC LIMIT 5`,
+      [todayStart.toISOString()]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'No approved articles in content queue. Run the aggregator first, then approve articles.' });
+    const result = await generateFreeNewsletter(rows);
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Legacy web-search preview (kept for fallback)
-router.post('/preview', adminAuth, async (req, res) => {
+// ── Today's dedollarizenews.com articles (read-only, for dashboard display) ───
+router.get('/articles/premium-preview', adminAuth, async (req, res) => {
   try {
-    const topics = (process.env.NEWSLETTER_TOPICS || 'dollar devaluation,BRICS,gold,inflation')
-      .split(',').map(t => t.trim());
-    const result = await generateNewsletter(topics);
-    res.json(result);
+    const articles = await fetchArticlesForNewsletter();
+    res.json({ articles });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Manually trigger content aggregator (Dream 100 + Grok) ───────────────────
+router.post('/run-aggregator', adminAuth, async (req, res) => {
+  res.json({ message: 'Content aggregator started — check queue in ~30 seconds' });
+  runAggregatorJob().catch(err => console.error('Aggregator error:', err.message));
 });
 
 // ── Test SES connectivity ─────────────────────────────────────────────────────
