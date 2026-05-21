@@ -104,7 +104,7 @@ async function generatePremiumNewsletter(articles, topics) {
     `Article ${i + 1}:\nTitle: ${a.title}\nSource: ${a.source}\nURL: ${a.url}\nSummary: ${a.summary || '(no summary)'}`
   ).join('\n\n');
 
-  // Generate images in parallel while Claude writes — both run concurrently
+  // Claude and images run concurrently — images generated sequentially to avoid rate limits
   const [response, images] = await Promise.all([
     client.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -133,7 +133,14 @@ For each story, output this block (fill in [HEADLINE], [DEEP ANALYSIS], [SOURCE 
 Output all 5 story blocks back to back. Nothing else.`
       }]
     }),
-    Promise.all(articles.map(a => generateStoryImage(a.title)))
+    (async () => {
+      const imgs = [];
+      for (const article of articles) {
+        imgs.push(await generateStoryImage(article.title));
+        await new Promise(r => setTimeout(r, 3000));
+      }
+      return imgs;
+    })(),
   ]);
 
   const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
