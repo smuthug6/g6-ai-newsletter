@@ -62,24 +62,24 @@ const TODAY = () => new Date().toLocaleDateString('en-US', {
 
 const HEADER_HTML = (today) => `
     <!-- Header -->
-    <div style="background:#1a0000;padding:32px 40px;text-align:center;border-bottom:2px solid #cc0000;">
+    <div style="background:#cc0000;padding:32px 40px;text-align:center;border-bottom:3px solid #990000;">
       <h1 style="color:#ffffff;margin:0;font-size:26px;font-weight:900;letter-spacing:2px;text-transform:uppercase;">DE-DOLLARIZE NEWS</h1>
-      <p style="color:#cc0000;margin:10px 0 0;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-weight:700;">While You Were Distracted</p>
-      <p style="color:#666666;margin:8px 0 0;font-size:12px;">${today}</p>
+      <p style="color:#ffcccc;margin:10px 0 0;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-weight:700;">While You Were Distracted</p>
+      <p style="color:#ffaaaa;margin:8px 0 0;font-size:12px;">${today}</p>
     </div>
 
     <!-- Subheader banner -->
-    <div style="background:#1a0000;padding:24px 36px;text-align:center;border-bottom:2px solid #cc0000;">
-      <div style="color:#cc0000;font-size:13px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;">WHILE YOU WERE DISTRACTED</div>
-      <div style="color:#fff;font-size:22px;font-weight:900;letter-spacing:-.5px;">The truth they don't want you to see</div>
+    <div style="background:#1a1a1a;padding:20px 36px;text-align:center;border-bottom:1px solid #e0e0e0;">
+      <div style="color:#cc0000;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px;">WHILE YOU WERE DISTRACTED</div>
+      <div style="color:#ffffff;font-size:20px;font-weight:900;letter-spacing:-.5px;">The truth they don't want you to see</div>
     </div>`;
 
 const FOOTER_HTML = `
     <!-- Footer -->
-    <div style="background:#0a0a0a;padding:28px 40px;margin-top:32px;border-top:1px solid #cc0000;">
-      <p style="color:#555555;font-size:12px;text-align:center;margin:0;line-height:1.8;">
+    <div style="background:#f5f5f5;padding:28px 40px;margin-top:32px;border-top:3px solid #cc0000;">
+      <p style="color:#888888;font-size:12px;text-align:center;margin:0;line-height:1.8;">
         Protecting your wealth from the system. dedollarizenews.com<br>
-        <a href="https://dedollarizenews.com/unsubscribe" style="color:#555555;">Unsubscribe</a>
+        <a href="https://dedollarizenews.com/unsubscribe" style="color:#cc0000;text-decoration:none;">Unsubscribe</a>
       </p>
     </div>`;
 
@@ -87,13 +87,13 @@ function wrapHTML(bodyContent, today) {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <div style="max-width:600px;margin:0 auto;background:#111111;">
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;">
 ${HEADER_HTML(today)}
 
     <!-- Intro -->
     <div style="padding:32px 40px 0;">
-      <p style="color:#cccccc;font-size:15px;line-height:1.7;margin:0;">The dollar is under attack. Here's what the financial press is burying — and what you need to know to protect your wealth.</p>
+      <p style="color:#444444;font-size:15px;line-height:1.7;margin:0;">The dollar is under attack. Here's what the financial press is burying — and what you need to know to protect your wealth.</p>
     </div>
 
 ${bodyContent}
@@ -155,8 +155,8 @@ Return ONLY a valid JSON array of strings — one summary per article, in order.
       ${imageHtml}
       <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;${article.imageUrl ? 'padding-top:12px;' : ''}">
         ${timeHtml}
-        <h2 style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">${article.title}</h2>
-        <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0 0 10px;">${summary}</p>
+        <h2 style="color:#1a1a1a;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">${article.title}</h2>
+        <p style="color:#555555;font-size:14px;line-height:1.7;margin:0 0 10px;">${summary}</p>
         <a href="${article.url}" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL ANALYSIS →</a>
       </div>
     </div>`;
@@ -198,8 +198,8 @@ For each story, output this block:
 
     <div style="padding:24px 40px 0;">
       <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;">
-        <h2 style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
-        <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0;">[SENTENCE 1]. [SENTENCE 2]...</p>
+        <h2 style="color:#1a1a1a;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
+        <p style="color:#555555;font-size:14px;line-height:1.7;margin:0;">[SENTENCE 1]. [SENTENCE 2]...</p>
       </div>
     </div>
 
@@ -274,8 +274,8 @@ Return ONLY the inner story blocks (no html/body wrapper). For each story:
 
     <div style="padding:24px 40px 0;">
       <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;">
-        <h2 style="color:#ffffff;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
-        <p style="color:#aaaaaa;font-size:14px;line-height:1.7;margin:0 0 10px;">[SUMMARY]</p>
+        <h2 style="color:#1a1a1a;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
+        <p style="color:#555555;font-size:14px;line-height:1.7;margin:0 0 10px;">[SUMMARY]</p>
         <a href="[SOURCE URL]" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL STORY →</a>
       </div>
     </div>
