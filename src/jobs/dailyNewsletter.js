@@ -103,9 +103,10 @@ async function runDailyNewsletter() {
     // ── Premium: Neon DB active subscribers ──────────────────────────────────
     const premiumContacts = await getPremiumRecipients();
     console.log(`📧 Premium recipients from DB: ${premiumContacts.length}`);
+    if (premiumContacts.length === 0) console.warn('⚠️  No active subscribers found in DB — sent_to will be 0');
 
     const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
-    console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
+    console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}${premiumSend.firstError ? `, first error: ${premiumSend.firstError}` : ''}`);
 
     await db.query(
       `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)

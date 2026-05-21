@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
 const { runDailyNewsletter, runTestSend } = require('../jobs/dailyNewsletter');
+const { testSesConnection } = require('../email');
 
 function adminAuth(req, res, next) {
   const token = req.headers['x-admin-token'] || req.query.token;
@@ -179,10 +180,22 @@ router.post('/preview/free', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Test SES connectivity ─────────────────────────────────────────────────────
+router.post('/test-ses', adminAuth, async (req, res) => {
+  const { to } = req.body;
+  if (!to) return res.status(400).json({ error: 'to email is required' });
+  const result = await testSesConnection(to);
+  if (result.ok) {
+    res.json({ success: true, message: `SES test email sent to ${to}` });
+  } else {
+    res.status(500).json({ success: false, error: result.error });
+  }
+});
+
 // ── Send now ─────────────────────────────────────────────────────────────────
 router.post('/send-now', adminAuth, async (req, res) => {
   res.json({ message: 'Newsletter send started in background' });
-  runDailyNewsletter();
+  runDailyNewsletter().catch(err => console.error('❌ send-now background job crashed:', err.message));
 });
 
 // ── Test send — single email to confirm SES is working ───────────────────────
