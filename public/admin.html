@@ -472,7 +472,11 @@
       await new Promise(r => setTimeout(r, 300));
       loading.style.display = 'none';
       frame.style.display = 'block';
-      if (data.error) return showAlert(data.error, 'error');
+      if (data.error) {
+        frame.srcdoc = '';
+        frame.style.display = 'none';
+        return showAlert(data.error, 'error');
+      }
       frame.srcdoc = data.html;
     } catch (e) {
       clearInterval(_previewTimer);
