@@ -227,7 +227,7 @@
   }
 
   async function api(path, method = 'GET', body = null) {
-    const opts = { method, headers: { 'x-admin-token': token, 'Content-Type': 'application/json' } };
+    const opts = { method, headers: { 'x-admin-token': token, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15000) };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(`/admin${path}`, opts);
     if (res.status === 401) {
@@ -358,7 +358,15 @@
     document.getElementById('app').style.display = 'block';
     document.getElementById('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
 
-    const [stats] = await Promise.all([api('/stats'), loadSubscribers(currentTab), loadArticles()]);
+    let stats;
+    try {
+      [stats] = await Promise.all([api('/stats'), loadSubscribers(currentTab), loadArticles()]);
+    } catch (e) {
+      showAlert('Server is waking up — please wait a moment and click Refresh', 'error');
+      document.getElementById('subscribers-table').innerHTML = '<tr><td colspan="5" style="color:#f87171;text-align:center;padding:24px">Connection timed out — click Refresh to retry</td></tr>';
+      document.getElementById('articles-table').innerHTML = '<tr><td colspan="6" style="color:#f87171;text-align:center;padding:24px">Connection timed out — click Refresh to retry</td></tr>';
+      return;
+    }
 
     document.getElementById('stat-active').textContent = stats.active;
     document.getElementById('stat-frozen').textContent = stats.frozen;
