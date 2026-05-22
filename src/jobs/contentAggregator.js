@@ -125,11 +125,8 @@ async function saveTopicsToQueue(topics) {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
 
-  // Clear today's existing auto-generated entries (keep manually added ones)
-  await db.query(
-    `DELETE FROM daily_articles WHERE created_at >= $1 AND manually_added IS NOT TRUE`,
-    [todayStart.toISOString()]
-  );
+  // Clear ALL auto-generated entries (keep manually added ones)
+  await db.query(`DELETE FROM daily_articles WHERE manually_added IS NOT TRUE`);
 
   for (let i = 0; i < topics.length; i++) {
     const t = topics[i];
