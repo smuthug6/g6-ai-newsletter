@@ -9,6 +9,7 @@ const adminRouter = require('./routes/admin');
 const oauthRouter = require('./routes/oauth');
 const { startCronJob } = require('./jobs/dailyNewsletter');
 const { runContentAggregator } = require('./jobs/contentAggregator');
+const db = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,9 @@ app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 G6 AI server running on port ${PORT}`);
+
+  // Keep Neon DB warm — ping every 4 minutes to prevent suspension
+  setInterval(() => db.query('SELECT 1').catch(() => {}), 4 * 60 * 1000);
 
   // 7:00am UTC — fetch and score today's articles from all RSS feeds
   cron.schedule('0 7 * * *', () => {
