@@ -21,7 +21,8 @@
     .btn-primary { background: #6366f1; color: #fff; }
     .btn-danger  { background: #ef4444; color: #fff; }
     .btn-success { background: #22c55e; color: #fff; }
-    .btn-ghost   { background: #2d2d44; color: #e2e8f0; }
+    .btn-ghost     { background: #2d2d44; color: #e2e8f0; }
+    .btn-secondary { background: #7c3aed; color: #fff; font-weight: 700; }
     .btn-full    { width: 100%; justify-content: center; }
     .btn-approve { background: #15803d; color: #fff; font-size: 15px; font-weight: 700; padding: 14px 28px; }
     .btn-sm      { padding: 5px 10px; font-size: 12px; }
@@ -126,8 +127,9 @@
 
         <!-- Queue action buttons -->
         <div class="queue-actions">
-          <button class="btn btn-ghost" onclick="previewNewsletter('premium')">👁 Preview Premium</button>
-          <button class="btn btn-ghost" onclick="previewNewsletter('free')">👁 Preview Free Teaser</button>
+          <button class="btn btn-secondary" onclick="runAggregator()" id="btn-aggregator">⚡ Run Aggregator (Dream 100 + Grok)</button>
+          <button class="btn btn-ghost" onclick="previewNewsletter('premium')">👁 Preview Premium (dedollarizenews.com)</button>
+          <button class="btn btn-ghost" onclick="previewNewsletter('free')">👁 Preview Free Teaser (Dream 100 + Grok)</button>
           <button class="btn btn-approve" onclick="approveTop5()">✅ APPROVE TOP 5 &amp; SCHEDULE FOR 8AM</button>
         </div>
         <p class="notice">Auto-approves at 7:55am UTC if not manually approved</p>
@@ -328,6 +330,26 @@
     if (data.error) return showAlert(data.error, 'error');
     showAlert(`✅ Top ${data.approved} articles approved and scheduled for 8am`);
     loadArticles();
+  }
+
+  async function runAggregator() {
+    const btn = document.getElementById('btn-aggregator');
+    btn.disabled = true;
+    btn.textContent = '⏳ Running Dream 100 + Grok... (~30s)';
+    showAlert('Aggregator started — fetching Dream 100 feeds and asking Grok to rank topics...', 'info');
+    const data = await api('/run-aggregator', 'POST');
+    if (data.error) {
+      showAlert('Aggregator failed: ' + data.error, 'error');
+      btn.disabled = false;
+      btn.textContent = '⚡ Run Aggregator (Dream 100 + Grok)';
+      return;
+    }
+    showAlert('✅ Aggregator running in background — refresh the queue in ~30 seconds');
+    setTimeout(() => {
+      loadArticles();
+      btn.disabled = false;
+      btn.textContent = '⚡ Run Aggregator (Dream 100 + Grok)';
+    }, 35000);
   }
 
   // ── Stats & subscribers ─────────────────────────────────────────────────────
