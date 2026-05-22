@@ -226,8 +226,8 @@
     setTimeout(() => el.style.display = 'none', 5000);
   }
 
-  async function api(path, method = 'GET', body = null) {
-    const opts = { method, headers: { 'x-admin-token': token, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(45000) };
+  async function api(path, method = 'GET', body = null, timeoutMs = 45000) {
+    const opts = { method, headers: { 'x-admin-token': token, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(timeoutMs) };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(`/admin${path}`, opts);
     if (res.status === 401) {
@@ -466,7 +466,7 @@
 
     try {
       const endpoint = type === 'free' ? '/preview/free' : '/preview/premium';
-      const data = await api(endpoint, 'POST');
+      const data = await api(endpoint, 'POST', null, 120000);
       clearInterval(_previewTimer);
       barEl.style.width = '100%';
       await new Promise(r => setTimeout(r, 300));
