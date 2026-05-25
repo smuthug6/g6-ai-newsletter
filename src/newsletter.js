@@ -227,7 +227,7 @@ Output all ${articles.length} teaser blocks back to back, then output this CTA b
 
     <div style="padding:32px 40px;text-align:center;background:#f9f9f9;margin-top:8px;border-top:3px solid #cc0000;">
       <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">MEMBERS ONLY</p>
-      <a href="https://dedollarizenews.com/upgrade" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
+      <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
         GET OUR EXCLUSIVE DAILY ANALYSIS →<br>
         <span style="font-weight:400;font-size:13px;opacity:.9;">Subscribe to Inner Circle for dedollarizenews.com<br>premium content delivered daily</span>
       </a>
