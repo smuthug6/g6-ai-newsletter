@@ -67,6 +67,51 @@ async function runAutoApproveJob() {
   }
 }
 
+// ── Send premium only ─────────────────────────────────────────────────────────
+async function runPremiumNewsletter() {
+  console.log('📰 Sending premium newsletter only...');
+  try {
+    const wpArticles = await fetchArticlesForNewsletter();
+    if (wpArticles.length === 0) throw new Error('No articles found on dedollarizenews.com today');
+    const premiumResult = await generatePremiumNewsletter(wpArticles);
+    const premiumContacts = await getPremiumRecipients();
+    console.log(`📧 Premium recipients: ${premiumContacts.length}`);
+    const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
+    console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
+    await db.query(
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier) VALUES ($1, $2, $3, $4, 'premium')`,
+      [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com']]
+    );
+    return premiumSend;
+  } catch (err) {
+    console.error('❌ Premium send failed:', err.message);
+    throw err;
+  }
+}
+
+// ── Send free teaser only ─────────────────────────────────────────────────────
+async function runFreeNewsletter() {
+  console.log('📰 Sending free teaser only...');
+  try {
+    const queueArticles = await getApprovedQueueArticles();
+    if (queueArticles.length === 0) throw new Error('No approved articles in queue — approve articles first');
+    const freeResult = await generateFreeNewsletter(queueArticles);
+    let freeContacts = [];
+    try { freeContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
+    console.log(`📧 Free recipients: ${freeContacts.length}`);
+    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
+    console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
+    await db.query(
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier) VALUES ($1, $2, $3, $4, 'free')`,
+      [freeResult.subject, freeResult.html, freeSend.sent, ['dream100']]
+    );
+    return freeSend;
+  } catch (err) {
+    console.error('❌ Free send failed:', err.message);
+    throw err;
+  }
+}
+
 // ── 8:00am UTC: send both newsletters ────────────────────────────────────────
 async function runDailyNewsletter() {
   console.log('📰 Starting daily newsletter job...');
@@ -142,4 +187,4 @@ function startCronJob() {
   console.log(`📅 Cron: newsletter send at ${schedule} UTC`);
 }
 
-module.exports = { startCronJob, runDailyNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob };
+module.exports = { startCronJob, runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob };

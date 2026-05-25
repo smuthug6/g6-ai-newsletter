@@ -153,8 +153,10 @@
     </div>
 
     <!-- Actions row -->
-    <div style="display:flex;gap:12px;margin-bottom:24px;">
-      <button class="btn btn-success" onclick="sendNow()">📤 Send newsletter now</button>
+    <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+      <button class="btn btn-success" onclick="sendNow()">📤 Send Both Now</button>
+      <button class="btn btn-primary" onclick="sendPremium()">⭐ Send Premium Only</button>
+      <button class="btn btn-secondary" onclick="sendFree()">📡 Send Free Teaser Only</button>
       <button class="btn btn-ghost" onclick="loadAll()">🔄 Refresh</button>
     </div>
 
@@ -487,9 +489,21 @@
   }
 
   async function sendNow() {
-    if (!confirm('Send today\'s newsletter to all active subscribers now?')) return;
+    if (!confirm('Send BOTH newsletters now (premium + free teaser)?')) return;
     await api('/send-now', 'POST');
-    showAlert('Newsletter send started! Check back in a minute.');
+    showAlert('Both newsletters sending in background — check Recent Newsletters in ~2 mins.');
+  }
+
+  async function sendPremium() {
+    if (!confirm('Send PREMIUM newsletter only to Neon DB subscribers?')) return;
+    await api('/send-premium', 'POST');
+    showAlert('Premium newsletter sending in background — check Recent Newsletters in ~1 min.');
+  }
+
+  async function sendFree() {
+    if (!confirm('Send FREE TEASER only to GHL contacts?')) return;
+    await api('/send-free', 'POST');
+    showAlert('Free teaser sending in background — check Recent Newsletters in ~2 mins.');
   }
 </script>
 </body>

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { runDailyNewsletter, runTestSend, runAggregatorJob } = require('../jobs/dailyNewsletter');
+const { runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob } = require('../jobs/dailyNewsletter');
 const { testSesConnection } = require('../email');
 const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
 
@@ -187,10 +187,22 @@ router.post('/test-ses', adminAuth, async (req, res) => {
   }
 });
 
-// ── Send now ─────────────────────────────────────────────────────────────────
+// ── Send both now ─────────────────────────────────────────────────────────────
 router.post('/send-now', adminAuth, async (req, res) => {
   res.json({ message: 'Newsletter send started in background' });
   runDailyNewsletter().catch(err => console.error('❌ send-now background job crashed:', err.message));
+});
+
+// ── Send premium only ─────────────────────────────────────────────────────────
+router.post('/send-premium', adminAuth, async (req, res) => {
+  res.json({ message: 'Premium newsletter send started in background' });
+  runPremiumNewsletter().catch(err => console.error('❌ send-premium crashed:', err.message));
+});
+
+// ── Send free teaser only ─────────────────────────────────────────────────────
+router.post('/send-free', adminAuth, async (req, res) => {
+  res.json({ message: 'Free teaser send started in background' });
+  runFreeNewsletter().catch(err => console.error('❌ send-free crashed:', err.message));
 });
 
 // ── Test send — single email to confirm SES is working ───────────────────────
