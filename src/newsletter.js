@@ -1,6 +1,26 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const s3 = new S3Client({
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY,
+  },
+});
+
+async function uploadToS3(base64Image) {
+  const key = `newsletter/${Date.now()}.png`;
+  await s3.send(new PutObjectCommand({
+    Bucket: 'g6-newsletter-images',
+    Key: key,
+    Body: Buffer.from(base64Image, 'base64'),
+    ContentType: 'image/png',
+  }));
+  return `https://g6-newsletter-images.s3.us-east-1.amazonaws.com/${key}`;
+}
 
 // ── Google Imagen 4 — used ONLY for free teaser newsletter ───────────────────
 const IMAGE_THEMES = [
@@ -178,8 +198,8 @@ async function generateFreeNewsletter(articles) {
     `Article ${i + 1}:\nTitle: ${a.title}\nSummary: ${a.excerpt || a.summary || '(no summary)'}`
   ).join('\n\n');
 
-  // Run Claude and Imagen concurrently
-  const [response, images] = await Promise.all([
+  // Run Claude and Imagen (1 image only) concurrently
+  const [response, headerImageUrl] = await Promise.all([
     client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
@@ -215,19 +235,19 @@ Output all ${articles.length} teaser blocks back to back, then output this CTA b
     </div>`,
       }],
     }),
-    // Imagen images — sequential with delay to avoid rate limits
+    // Generate 1 header image and upload to S3
     (async () => {
-      const imgs = [];
-      for (let i = 0; i < articles.length; i++) {
-        imgs.push(await generateStoryImage(i));
-        if (i < articles.length - 1) await new Promise(r => setTimeout(r, 3000));
-      }
-      return imgs;
+      const b64 = await generateStoryImage(0);
+      if (!b64) return null;
+      try { return await uploadToS3(b64); } catch (e) { console.error('S3 upload failed:', e.message); return null; }
     })(),
   ]);
 
   const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const storiesHTML = injectImages(rawStoriesHTML, images);
+  const headerImgHtml = headerImageUrl
+    ? `\n    <div style="padding:0;"><img src="${headerImageUrl}" style="width:100%;height:260px;object-fit:cover;display:block;" alt=""></div>`
+    : '';
+  const storiesHTML = headerImgHtml + rawStoriesHTML;
   const html = wrapHTML(storiesHTML, today);
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
