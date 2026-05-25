@@ -64,13 +64,13 @@ async function generateStoryImage(index = 0) {
   }
 }
 
-// Inject base64 images above each <h2> in Claude-generated HTML (used for free teaser)
-function injectImages(storiesHTML, images) {
+// Inject S3-hosted image URLs above the first N <h2> tags
+function injectImageUrls(storiesHTML, urls) {
   let idx = 0;
   return storiesHTML.replace(/<h2 /g, (match) => {
-    const b64 = images[idx++];
-    if (!b64) return match;
-    return `<img src="data:image/png;base64,${b64}" style="width:100%;height:220px;object-fit:cover;margin-bottom:16px;border-radius:4px;display:block;" alt="">\n    ${match}`;
+    const url = urls[idx++];
+    if (!url) return match;
+    return `<img src="${url}" style="width:100%;height:220px;object-fit:cover;margin-bottom:16px;border-radius:4px;display:block;" alt="">\n    ${match}`;
   });
 }
 
@@ -199,7 +199,7 @@ async function generateFreeNewsletter(articles) {
   ).join('\n\n');
 
   // Run Claude and Imagen (1 image only) concurrently
-  const [response, headerImageUrl] = await Promise.all([
+  const [response, imageUrls] = await Promise.all([
     client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
@@ -235,19 +235,24 @@ Output all ${articles.length} teaser blocks back to back, then output this CTA b
     </div>`,
       }],
     }),
-    // Generate 1 header image and upload to S3
+    // Generate 2 images sequentially and upload to S3
     (async () => {
-      const b64 = await generateStoryImage(0);
-      if (!b64) return null;
-      try { return await uploadToS3(b64); } catch (e) { console.error('S3 upload failed:', e.message); return null; }
+      const urls = [];
+      for (let i = 0; i < 2; i++) {
+        const b64 = await generateStoryImage(i);
+        if (b64) {
+          try { urls.push(await uploadToS3(b64)); } catch (e) { console.error('S3 upload failed:', e.message); urls.push(null); }
+        } else {
+          urls.push(null);
+        }
+        if (i === 0) await new Promise(r => setTimeout(r, 3000));
+      }
+      return urls;
     })(),
   ]);
 
   const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const headerImgHtml = headerImageUrl
-    ? `\n    <div style="padding:0;"><img src="${headerImageUrl}" style="width:100%;height:260px;object-fit:cover;display:block;" alt=""></div>`
-    : '';
-  const storiesHTML = headerImgHtml + rawStoriesHTML;
+  const storiesHTML = injectImageUrls(rawStoriesHTML, imageUrls);
   const html = wrapHTML(storiesHTML, today);
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
