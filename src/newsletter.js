@@ -81,14 +81,9 @@ const TODAY = () => new Date().toLocaleDateString('en-US', {
 });
 
 const HEADER_HTML = (today) => `
-    <!-- Hero image -->
-    <div style="margin:0;padding:0;">
-      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/inner-circle-hero.webp" style="width:100%;display:block;height:220px;object-fit:cover;object-position:center top;" alt="De-Dollarize News Inner Circle">
-    </div>
-
-    <!-- Inner Circle branding -->
-    <div style="background:#cc0000;padding:24px 40px;text-align:center;">
-      <div style="color:#ffdddd;font-size:11px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;margin-bottom:6px;">DE-DOLLARIZE NEWS</div>
+    <!-- Logo + Inner Circle branding -->
+    <div style="background:#cc0000;padding:28px 40px 20px;text-align:center;">
+      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/dedollarize-logo.png" style="display:block;margin:0 auto 14px;height:56px;width:auto;" alt="De-Dollarize News">
       <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:900;letter-spacing:3px;text-transform:uppercase;">INNER CIRCLE</h1>
       <p style="color:#ffcccc;margin:8px 0 0;font-size:12px;letter-spacing:.05em;">${today}</p>
     </div>`;
@@ -165,15 +160,10 @@ Return ONLY a valid JSON array of strings — one summary per article, in order.
     const imageHtml = article.imageUrl
       ? `<img src="${article.imageUrl}" style="width:100%;height:220px;object-fit:cover;display:block;margin-bottom:0;border-radius:4px 4px 0 0;" alt="">`
       : '';
-    const timeHtml = article.publishedTime
-      ? `<p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:0.5px;margin:0 0 6px;text-transform:uppercase;">${article.publishedTime}</p>`
-      : '';
-
     return `
     <div style="padding:24px 40px 0;">
       ${imageHtml}
       <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;${article.imageUrl ? 'padding-top:12px;' : ''}">
-        ${timeHtml}
         <h2 style="color:#1a1a1a;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">${article.title}</h2>
         <p style="color:#555555;font-size:14px;line-height:1.7;margin:0 0 10px;">${summary}</p>
         <a href="${article.url}" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL ANALYSIS →</a>
