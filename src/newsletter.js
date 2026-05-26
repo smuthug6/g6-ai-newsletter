@@ -83,7 +83,7 @@ const TODAY = () => new Date().toLocaleDateString('en-US', {
 const HEADER_HTML = (today) => `
     <!-- Hero image -->
     <div style="margin:0;padding:0;">
-      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/inner-circle-hero.webp" style="width:100%;display:block;max-height:320px;object-fit:cover;" alt="De-Dollarize News Inner Circle">
+      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/inner-circle-hero.webp" style="width:100%;display:block;height:220px;object-fit:cover;object-position:center top;" alt="De-Dollarize News Inner Circle">
     </div>
 
     <!-- Inner Circle branding -->
