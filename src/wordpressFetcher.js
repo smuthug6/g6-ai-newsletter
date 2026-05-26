@@ -35,7 +35,7 @@ async function fetchTodayWPArticles() {
   const posts = await res.json();
   if (!Array.isArray(posts) || posts.length === 0) return [];
 
-  console.log(`WP API: ${posts.length} posts for ${dateStr}`);
+  console.log(`WP API: ${posts.length} posts in last 48h`);
 
   // Fetch all featured images in parallel
   const articles = await Promise.all(posts.map(async (post) => {
