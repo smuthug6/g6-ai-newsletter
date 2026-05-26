@@ -171,20 +171,19 @@ async function runDailyNewsletter() {
   }
 }
 
-// ── Cron wiring ───────────────────────────────────────────────────────────────
+// ── Cron wiring (all times Eastern) ──────────────────────────────────────────
 function startCronJob() {
-  // 7:00am UTC — fetch Dream 100, run Grok, save top 10 to queue
-  cron.schedule('0 7 * * *', runAggregatorJob, { timezone: 'UTC' });
-  console.log('📅 Cron: content aggregator at 7:00am UTC');
+  // 11:00am UTC (7:00am EDT) — fetch Dream 100, run Grok, save top 10 to queue
+  cron.schedule('0 11 * * *', runAggregatorJob, { timezone: 'UTC' });
+  console.log('📅 Cron: content aggregator at 7:00am EDT (11:00am UTC)');
 
-  // 7:55am UTC — auto-approve top 5 if not manually approved
-  cron.schedule('55 7 * * *', runAutoApproveJob, { timezone: 'UTC' });
-  console.log('📅 Cron: auto-approve at 7:55am UTC');
+  // 11:55am UTC (7:55am EDT) — auto-approve top 5 if not manually approved
+  cron.schedule('55 11 * * *', runAutoApproveJob, { timezone: 'UTC' });
+  console.log('📅 Cron: auto-approve at 7:55am EDT (11:55am UTC)');
 
-  // 8:00am UTC — send both newsletters
-  const schedule = process.env.CRON_SCHEDULE || '0 8 * * *';
-  cron.schedule(schedule, runDailyNewsletter, { timezone: 'UTC' });
-  console.log(`📅 Cron: newsletter send at ${schedule} UTC`);
+  // 12:00pm UTC (8:00am EDT) — send both newsletters
+  cron.schedule('0 12 * * *', runDailyNewsletter, { timezone: 'UTC' });
+  console.log('📅 Cron: newsletter send at 8:00am EDT (12:00pm UTC)');
 }
 
 module.exports = { startCronJob, runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob };
