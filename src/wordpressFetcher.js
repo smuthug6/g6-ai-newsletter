@@ -1,5 +1,3 @@
-const RSSParser = require('rss-parser');
-
 const WP_BASE = 'https://dedollarizenews.com/wp-json/wp/v2';
 const WP_HEADERS = {
   Accept: 'application/json',
@@ -24,11 +22,11 @@ function stripHtml(html = '') {
 }
 
 async function fetchTodayWPArticles() {
-  const dateStr = new Date().toISOString().split('T')[0]; // "2026-05-21"
+  const after = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
   const url =
     `${WP_BASE}/posts?per_page=50` +
-    `&after=${dateStr}T00:00:00` +
-    `&before=${dateStr}T23:59:59` +
+    `&after=${after}` +
+    `&orderby=date&order=desc` +
     `&_fields=id,title,excerpt,date,link,featured_media`;
 
   const res = await fetch(url, { headers: WP_HEADERS });
@@ -73,52 +71,18 @@ async function fetchTodayWPArticles() {
   return articles.filter(a => a.title && a.url);
 }
 
-// Fallback: top 3 recent articles from Dream 100 RSS feeds
-const FALLBACK_FEEDS = [
-  'https://www.sovereignman.com/feed',
-  'https://www.zerohedge.com/fullrss2.xml',
-  'https://dailyreckoning.com/feed',
-  'https://internationalman.com/feed',
-  'https://harrydent.com/feed',
-];
 
-async function fetchFallbackArticles() {
-  const parser = new RSSParser({
-    timeout: 10000,
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; G6Newsletter/1.0)' },
-  });
-
-  const results = await Promise.allSettled(FALLBACK_FEEDS.map(url => parser.parseURL(url)));
-  const articles = [];
-
-  for (const result of results) {
-    if (result.status !== 'fulfilled') continue;
-    const item = result.value.items?.[0];
-    if (!item?.title || !item?.link) continue;
-    articles.push({
-      title: item.title.trim(),
-      excerpt: item.contentSnippet?.slice(0, 400) || '',
-      url: item.link || item.guid || '',
-      imageUrl: null,
-      publishedTime: null,
-      source: result.value.title || 'Financial News',
-    });
-    if (articles.length >= 3) break;
-  }
-
-  return articles;
-}
-
-// Primary entry point: WP articles first, RSS fallback if none
+// Primary entry point: WP articles from last 48h, no fallback
 async function fetchArticlesForNewsletter() {
   try {
     const wpArticles = await fetchTodayWPArticles();
     if (wpArticles.length > 0) return wpArticles;
-    console.log('No WP articles for today — using Dream 100 RSS fallback');
+    console.warn('No WP articles found in last 48h — premium newsletter will be skipped');
+    return [];
   } catch (err) {
-    console.warn(`WP API failed (${err.message}) — using Dream 100 RSS fallback`);
+    console.warn(`WP API failed (${err.message}) — premium newsletter will be skipped`);
+    return [];
   }
-  return fetchFallbackArticles();
 }
 
 module.exports = { fetchArticlesForNewsletter };
