@@ -22,7 +22,12 @@ function stripHtml(html = '') {
 }
 
 async function fetchTodayWPArticles() {
-  const after = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  // Use Eastern Time midnight so only today's ET articles are fetched
+  const ET_OFFSET_MS = 4 * 60 * 60 * 1000; // EDT = UTC-4
+  const nowET = new Date(Date.now() - ET_OFFSET_MS);
+  const todayET = nowET.toISOString().split('T')[0]; // "2026-05-26"
+  const after = `${todayET}T00:00:00`; // WP interprets without Z as site timezone
+
   const url =
     `${WP_BASE}/posts?per_page=50` +
     `&after=${after}` +
@@ -35,7 +40,7 @@ async function fetchTodayWPArticles() {
   const posts = await res.json();
   if (!Array.isArray(posts) || posts.length === 0) return [];
 
-  console.log(`WP API: ${posts.length} posts in last 48h`);
+  console.log(`WP API: ${posts.length} posts for ${todayET} ET`);
 
   // Fetch all featured images in parallel
   const articles = await Promise.all(posts.map(async (post) => {
