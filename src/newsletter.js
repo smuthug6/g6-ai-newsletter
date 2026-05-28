@@ -179,7 +179,7 @@ Return ONLY a valid JSON array of strings — one summary per article, in order.
   const html = wrapHTML(storiesHTML, today);
 
   // Subject: first article (most recent from WP, ordered newest-first)
-  const subject = `ALERT: ${articles[0].title.substring(0, 65)}`;
+  const subject = `Inner Circle: ${articles[0].title.substring(0, 65)}`;
 
   return { subject, html };
 }
@@ -309,7 +309,7 @@ Fill in all stories. Make every headline dramatic and urgent.`,
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News Alert';
-  const subject = `ALERT: ${firstHeadline.substring(0, 65)}`;
+  const subject = `Inner Circle: ${firstHeadline.substring(0, 65)}`;
 
   return { subject, html };
 }
