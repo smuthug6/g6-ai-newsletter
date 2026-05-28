@@ -22,7 +22,7 @@ const FROM = `"De-Dollarize News" <${process.env.SES_FROM_EMAIL || 'newsletter@m
 async function sendEmail({ to, subject, html, tier, sendId }) {
   const transporter = getTransporter();
   const headers = {
-    'List-Unsubscribe': '<https://dedollarizenews.com/unsubscribe>',
+    'List-Unsubscribe': '<https://sites.leadconnectorhq.com/preview/iWCmwhl0MwsTeCHsEUqp?notrack=true>',
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     'X-SES-CONFIGURATION-SET': 'newsletter-tracking',
   };
