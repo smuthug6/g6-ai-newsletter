@@ -76,7 +76,7 @@ async function runPremiumNewsletter() {
     const premiumResult = await generatePremiumNewsletter(wpArticles);
     const premiumContacts = await getPremiumRecipients();
     console.log(`📧 Premium recipients: ${premiumContacts.length}`);
-    const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
+    const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html, { tier: 'premium' });
     console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
     await db.query(
       `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier) VALUES ($1, $2, $3, $4, 'premium')`,
@@ -99,7 +99,7 @@ async function runFreeNewsletter() {
     let freeContacts = [];
     try { freeContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
     console.log(`📧 Free recipients: ${freeContacts.length}`);
-    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
+    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free' });
     console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
     await db.query(
       `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier) VALUES ($1, $2, $3, $4, 'free')`,
@@ -129,7 +129,7 @@ async function runDailyNewsletter() {
       console.log(`📧 Premium recipients: ${premiumContacts.length}`);
       if (premiumContacts.length === 0) console.warn('⚠️  No active subscribers in DB');
 
-      const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html);
+      const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html, { tier: 'premium' });
       console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}${premiumSend.firstError ? `, error: ${premiumSend.firstError}` : ''}`);
 
       await db.query(
@@ -155,7 +155,7 @@ async function runDailyNewsletter() {
       }
       console.log(`📧 Free recipients: ${freeContacts.length}`);
 
-      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html);
+      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free' });
       console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
 
       await db.query(

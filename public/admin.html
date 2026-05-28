@@ -187,6 +187,26 @@
       <div id="newsletters-list"><p style="color:#6b7280;font-size:14px">Loading...</p></div>
     </div>
 
+    <!-- Analytics -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Newsletter Analytics</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadAnalytics()">🔄 Refresh</button>
+      </div>
+      <div id="analytics-list"><p style="color:#6b7280;font-size:14px">Loading...</p></div>
+    </div>
+
+    <!-- Analytics drill-down modal -->
+    <div id="analytics-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;">
+      <div style="background:#1a1a2e;border:1px solid #2d2d44;border-radius:12px;padding:28px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <h3 id="modal-title" style="font-size:16px;font-weight:600;"></h3>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('analytics-modal').style.display='none'">✕ Close</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
     <!-- Preview card -->
     <div class="card" id="preview-card" style="display:none">
       <div class="card-header">
@@ -362,7 +382,7 @@
 
     let stats;
     try {
-      [stats] = await Promise.all([api('/stats'), loadSubscribers(currentTab), loadArticles()]);
+      [stats] = await Promise.all([api('/stats'), loadSubscribers(currentTab), loadArticles(), loadAnalytics()]);
     } catch (e) {
       showAlert('Server is waking up — please wait a moment and click Refresh', 'error');
       document.getElementById('subscribers-table').innerHTML = '<tr><td colspan="5" style="color:#f87171;text-align:center;padding:24px">Connection timed out — click Refresh to retry</td></tr>';
@@ -504,6 +524,81 @@
     if (!confirm('Send FREE TEASER only to GHL contacts?')) return;
     await api('/send-free', 'POST');
     showAlert('Free teaser sending in background — check Recent Newsletters in ~2 mins.');
+  }
+
+  // ── Analytics ────────────────────────────────────────────────────────────────
+  async function loadAnalytics() {
+    const el = document.getElementById('analytics-list');
+    el.innerHTML = '<p style="color:#6b7280;font-size:14px">Loading...</p>';
+    try {
+      const data = await api('/analytics');
+      const newsletters = data.newsletters || [];
+      if (!newsletters.length) {
+        el.innerHTML = '<p style="color:#6b7280;font-size:14px">No newsletters sent yet.</p>';
+        return;
+      }
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Tier</th><th>Subject</th>
+              <th>Sent</th><th>Opens</th><th>Clicks</th><th>Bounces</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${newsletters.map(n => {
+              const d = new Date(n.sent_at);
+              const date = d.toLocaleDateString();
+              const dateKey = d.toISOString().split('T')[0];
+              const openPct = n.sent_to > 0 ? Math.round(n.opens / n.sent_to * 100) : 0;
+              const clickPct = n.sent_to > 0 ? Math.round(n.clicks / n.sent_to * 100) : 0;
+              return `<tr>
+                <td style="white-space:nowrap">${date}</td>
+                <td><span class="badge ${n.tier === 'premium' ? 'badge-active' : 'badge-frozen'}">${n.tier}</span></td>
+                <td style="font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.subject}</td>
+                <td>${n.sent_to}</td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','open')">${n.opens} <span style="color:#6b7280">(${openPct}%)</span></button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click')">${n.clicks} <span style="color:#6b7280">(${clickPct}%)</span></button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','bounce')">${n.bounces}</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      el.innerHTML = `<p style="color:#f87171;font-size:14px">Failed to load analytics: ${e.message}</p>`;
+    }
+  }
+
+  async function drillDown(date, tier, eventType) {
+    const modal = document.getElementById('analytics-modal');
+    const title = document.getElementById('modal-title');
+    const body  = document.getElementById('modal-body');
+    title.textContent = `${eventType.charAt(0).toUpperCase() + eventType.slice(1)}s — ${tier} — ${date}`;
+    body.innerHTML = '<p style="color:#6b7280">Loading...</p>';
+    modal.style.display = 'flex';
+
+    try {
+      const data = await api(`/analytics/events?tier=${tier}&date=${date}&event_type=${eventType}`);
+      const events = data.events || [];
+      if (!events.length) {
+        body.innerHTML = '<p style="color:#6b7280;font-size:14px">No events recorded.</p>';
+        return;
+      }
+      body.innerHTML = `
+        <table>
+          <thead><tr><th>Email</th><th>Time</th>${eventType === 'click' ? '<th>Link</th>' : ''}</tr></thead>
+          <tbody>
+            ${events.map(e => `
+              <tr>
+                <td style="font-size:13px;">${e.email || '—'}</td>
+                <td style="font-size:12px;color:#6b7280;white-space:nowrap;">${new Date(e.event_time).toLocaleTimeString()}</td>
+                ${eventType === 'click' ? `<td style="font-size:11px;color:#6366f1;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.link || '—'}</td>` : ''}
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      body.innerHTML = `<p style="color:#f87171">Error: ${e.message}</p>`;
+    }
   }
 </script>
 </body>

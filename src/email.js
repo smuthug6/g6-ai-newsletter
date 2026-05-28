@@ -19,22 +19,20 @@ function getTransporter() {
 const FROM = `"De-Dollarize News" <${process.env.SES_FROM_EMAIL || 'newsletter@mail.dedollarizenews.com'}>`;
 
 // Send to a single address
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, subject, html, tier }) {
   const transporter = getTransporter();
-  await transporter.sendMail({
-    from: FROM,
-    to,
-    subject,
-    html,
-    headers: {
-      'List-Unsubscribe': '<https://dedollarizenews.com/unsubscribe>',
-      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-    },
-  });
+  const headers = {
+    'List-Unsubscribe': '<https://dedollarizenews.com/unsubscribe>',
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    'X-SES-CONFIGURATION-SET': 'newsletter-tracking',
+  };
+  if (tier) headers['X-SES-MESSAGE-TAGS'] = `tier=${tier}`;
+  await transporter.sendMail({ from: FROM, to, subject, html, headers });
 }
 
-// Send to a list of contacts [{email, id}] — returns { sent, failed, firstError }
-async function sendBulk(contacts, subject, html) {
+// Send to a list of contacts [{email}] — returns { sent, failed, firstError }
+async function sendBulk(contacts, subject, html, options = {}) {
+  const { tier } = options;
   let sent = 0;
   let failed = 0;
   let firstError = null;
@@ -43,7 +41,7 @@ async function sendBulk(contacts, subject, html) {
     const email = contact.email || contact.emailAddress;
     if (!email) { failed++; continue; }
     try {
-      await sendEmail({ to: email, subject, html });
+      await sendEmail({ to: email, subject, html, tier });
       sent++;
     } catch (err) {
       if (!firstError) firstError = `${email}: ${err.message}`;
