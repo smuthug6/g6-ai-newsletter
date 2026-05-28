@@ -7,20 +7,26 @@ const { runContentAggregator, autoApproveTop5 } = require('./contentAggregator')
 const { getContactsByTag } = require('../ghl');
 const { sendEmail, sendBulk } = require('../email');
 
-const FREE_TAG = 'lead-source-inner-circle';
-
 // ── Premium: Neon DB active subscribers ──────────────────────────────────────
 async function getPremiumRecipients() {
   const { rows } = await db.query(`SELECT email FROM subscribers WHERE status = 'active'`);
   return rows.map(r => ({ email: r.email }));
 }
 
-// ── Free: GHL contacts with lead tag ─────────────────────────────────────────
+// ── Free: GHL contacts with engaged or unengaged marketable email tags ────────
 async function getFreeRecipients() {
-  const contacts = await getContactsByTag(FREE_TAG);
-  return contacts
+  const [engaged, unengaged] = await Promise.all([
+    getContactsByTag('engaged - marketable email'),
+    getContactsByTag('unengaged - marketable email'),
+  ]);
+  const seen = new Set();
+  return [...engaged, ...unengaged]
     .map(c => ({ email: (c.email || c.emailAddress || '').trim() }))
-    .filter(c => c.email);
+    .filter(c => {
+      if (!c.email || seen.has(c.email)) return false;
+      seen.add(c.email);
+      return true;
+    });
 }
 
 // ── Get today's approved articles from content queue (for free teaser) ───────
