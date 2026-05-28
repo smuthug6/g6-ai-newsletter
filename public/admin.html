@@ -552,14 +552,15 @@
               const dateKey = d.toISOString().split('T')[0];
               const openPct = n.sent_to > 0 ? Math.round(n.opens / n.sent_to * 100) : 0;
               const clickPct = n.sent_to > 0 ? Math.round(n.clicks / n.sent_to * 100) : 0;
+              const sid = n.send_id || '';
               return `<tr>
                 <td style="white-space:nowrap">${date}</td>
                 <td><span class="badge ${n.tier === 'premium' ? 'badge-active' : 'badge-frozen'}">${n.tier}</span></td>
                 <td style="font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.subject}</td>
                 <td>${n.sent_to}</td>
-                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','open')">${n.opens} <span style="color:#6b7280">(${openPct}%)</span></button></td>
-                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click')">${n.clicks} <span style="color:#6b7280">(${clickPct}%)</span></button></td>
-                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','bounce')">${n.bounces}</button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','open','${sid}')">${n.opens} <span style="color:#6b7280">(${openPct}%)</span></button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click','${sid}')">${n.clicks} <span style="color:#6b7280">(${clickPct}%)</span></button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','bounce','${sid}')">${n.bounces}</button></td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -569,7 +570,7 @@
     }
   }
 
-  async function drillDown(date, tier, eventType) {
+  async function drillDown(date, tier, eventType, sendId) {
     const modal = document.getElementById('analytics-modal');
     const title = document.getElementById('modal-title');
     const body  = document.getElementById('modal-body');
@@ -578,7 +579,10 @@
     modal.style.display = 'flex';
 
     try {
-      const data = await api(`/analytics/events?tier=${tier}&date=${date}&event_type=${eventType}`);
+      const params = sendId
+        ? `send_id=${sendId}&event_type=${eventType}`
+        : `tier=${tier}&date=${date}&event_type=${eventType}`;
+      const data = await api(`/analytics/events?${params}`);
       const events = data.events || [];
       if (!events.length) {
         body.innerHTML = '<p style="color:#6b7280;font-size:14px">No events recorded.</p>';

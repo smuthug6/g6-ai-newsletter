@@ -222,15 +222,18 @@ router.get('/analytics', adminAuth, async (req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT
-        n.id, n.subject, n.sent_to, n.sent_at, n.tier,
+        n.id, n.subject, n.sent_to, n.sent_at, n.tier, n.send_id,
         COUNT(DISTINCT CASE WHEN e.event_type = 'open'      THEN e.email END) AS opens,
         COUNT(DISTINCT CASE WHEN e.event_type = 'click'     THEN e.email END) AS clicks,
         COUNT(DISTINCT CASE WHEN e.event_type = 'bounce'    THEN e.email END) AS bounces,
         COUNT(DISTINCT CASE WHEN e.event_type = 'complaint' THEN e.email END) AS complaints
       FROM newsletters n
-      LEFT JOIN email_events e
-        ON e.tier = n.tier
-        AND DATE(e.event_time AT TIME ZONE 'UTC') = DATE(n.sent_at AT TIME ZONE 'UTC')
+      LEFT JOIN email_events e ON (
+        (n.send_id IS NOT NULL AND e.send_id = n.send_id)
+        OR
+        (n.send_id IS NULL AND e.tier = n.tier
+          AND DATE(e.event_time AT TIME ZONE 'UTC') = DATE(n.sent_at AT TIME ZONE 'UTC'))
+      )
       GROUP BY n.id
       ORDER BY n.sent_at DESC
       LIMIT 20
@@ -241,18 +244,28 @@ router.get('/analytics', adminAuth, async (req, res) => {
   }
 });
 
-// ── Analytics drill-down: who opened/clicked for a given tier+date ────────────
+// ── Analytics drill-down: who opened/clicked ─────────────────────────────────
 router.get('/analytics/events', adminAuth, async (req, res) => {
-  const { tier, date, event_type } = req.query;
-  if (!tier || !date || !event_type) return res.status(400).json({ error: 'tier, date, event_type required' });
+  const { send_id, tier, date, event_type } = req.query;
+  if (!event_type) return res.status(400).json({ error: 'event_type required' });
   try {
-    const { rows } = await db.query(`
-      SELECT email, event_type, link, event_time
-      FROM email_events
-      WHERE event_type = $1 AND tier = $2
-        AND DATE(event_time AT TIME ZONE 'UTC') = $3::date
-      ORDER BY event_time ASC
-    `, [event_type, tier, date]);
+    let rows;
+    if (send_id) {
+      ({ rows } = await db.query(`
+        SELECT email, event_type, link, event_time
+        FROM email_events
+        WHERE event_type = $1 AND send_id = $2
+        ORDER BY event_time ASC
+      `, [event_type, send_id]));
+    } else {
+      ({ rows } = await db.query(`
+        SELECT email, event_type, link, event_time
+        FROM email_events
+        WHERE event_type = $1 AND tier = $2
+          AND DATE(event_time AT TIME ZONE 'UTC') = $3::date
+        ORDER BY event_time ASC
+      `, [event_type, tier, date]));
+    }
     res.json({ events: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });

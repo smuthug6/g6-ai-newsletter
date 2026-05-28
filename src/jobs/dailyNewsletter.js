@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const { randomUUID } = require('crypto');
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter } = require('../newsletter');
 const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
@@ -76,11 +77,12 @@ async function runPremiumNewsletter() {
     const premiumResult = await generatePremiumNewsletter(wpArticles);
     const premiumContacts = await getPremiumRecipients();
     console.log(`📧 Premium recipients: ${premiumContacts.length}`);
-    const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html, { tier: 'premium' });
+    const premiumSendId = randomUUID();
+    const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html, { tier: 'premium', sendId: premiumSendId });
     console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
     await db.query(
-      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier) VALUES ($1, $2, $3, $4, 'premium')`,
-      [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com']]
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, $3, $4, 'premium', $5)`,
+      [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com'], premiumSendId]
     );
     return premiumSend;
   } catch (err) {
@@ -99,11 +101,12 @@ async function runFreeNewsletter() {
     let freeContacts = [];
     try { freeContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
     console.log(`📧 Free recipients: ${freeContacts.length}`);
-    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free' });
+    const freeSendId = randomUUID();
+    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
     console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
     await db.query(
-      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier) VALUES ($1, $2, $3, $4, 'free')`,
-      [freeResult.subject, freeResult.html, freeSend.sent, ['dream100']]
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, $3, $4, 'free', $5)`,
+      [freeResult.subject, freeResult.html, freeSend.sent, ['dream100'], freeSendId]
     );
     return freeSend;
   } catch (err) {
@@ -129,13 +132,14 @@ async function runDailyNewsletter() {
       console.log(`📧 Premium recipients: ${premiumContacts.length}`);
       if (premiumContacts.length === 0) console.warn('⚠️  No active subscribers in DB');
 
-      const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html, { tier: 'premium' });
+      const premiumSendId = randomUUID();
+      const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html, { tier: 'premium', sendId: premiumSendId });
       console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}${premiumSend.firstError ? `, error: ${premiumSend.firstError}` : ''}`);
 
       await db.query(
-        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
-         VALUES ($1, $2, $3, $4, 'premium')`,
-        [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com']]
+        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
+         VALUES ($1, $2, $3, $4, 'premium', $5)`,
+        [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com'], premiumSendId]
       );
     }
 
@@ -155,13 +159,14 @@ async function runDailyNewsletter() {
       }
       console.log(`📧 Free recipients: ${freeContacts.length}`);
 
-      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free' });
+      const freeSendId = randomUUID();
+      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
       console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
 
       await db.query(
-        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier)
-         VALUES ($1, $2, $3, $4, 'free')`,
-        [freeResult.subject, freeResult.html, freeSend.sent, ['dream100']]
+        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
+         VALUES ($1, $2, $3, $4, 'free', $5)`,
+        [freeResult.subject, freeResult.html, freeSend.sent, ['dream100'], freeSendId]
       );
     }
 
