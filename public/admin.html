@@ -6,69 +6,75 @@
   <title>G6Ai — Admin</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f13; color: #e2e8f0; min-height: 100vh; }
-    .header { background: #1a1a2e; border-bottom: 1px solid #2d2d44; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fef9ee; color: #1a1a1a; min-height: 100vh; }
+    .header { background: #0b0b0c; border-bottom: 1px solid #1a1a1a; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; }
     .header h1 { font-size: 20px; font-weight: 700; color: #fff; }
-    .header span { font-size: 13px; color: #6b7280; }
+    .header span { font-size: 13px; color: #c9b890; }
     .container { max-width: 1100px; margin: 0 auto; padding: 32px; }
     .login-screen { display: flex; align-items: center; justify-content: center; min-height: 80vh; }
-    .login-box { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 40px; width: 360px; text-align: center; }
-    .login-box h2 { font-size: 22px; margin-bottom: 8px; }
-    .login-box p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
-    input[type=password], input[type=text], input[type=url] { width: 100%; padding: 10px 14px; background: #0f0f13; border: 1px solid #2d2d44; border-radius: 8px; color: #e2e8f0; font-size: 14px; margin-bottom: 12px; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity .15s; }
-    .btn:hover { opacity: .85; }
-    .btn-primary { background: #6366f1; color: #fff; }
-    .btn-danger  { background: #ef4444; color: #fff; }
-    .btn-success { background: #22c55e; color: #fff; }
-    .btn-ghost     { background: #2d2d44; color: #e2e8f0; }
-    .btn-secondary { background: #7c3aed; color: #fff; font-weight: 700; }
+    .login-box { background: #ffffff; border: 1px solid #ecdcb8; border-radius: 12px; padding: 40px; width: 360px; text-align: center; box-shadow: 0 4px 24px -8px rgba(10,10,10,0.08); }
+    .login-box h2 { font-size: 22px; margin-bottom: 8px; color: #0a0a0a; }
+    .login-box p { color: #6b5f4a; font-size: 14px; margin-bottom: 24px; }
+    input[type=password], input[type=text], input[type=url] { width: 100%; padding: 10px 14px; background: #ffffff; border: 1px solid #d4bf8d; border-radius: 8px; color: #1a1a1a; font-size: 14px; margin-bottom: 12px; transition: border-color .15s, box-shadow .15s; }
+    input[type=password]:focus, input[type=text]:focus, input[type=url]:focus { outline: none; border-color: #b8862a; box-shadow: 0 0 0 3px rgba(184,134,42,0.15); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: opacity .15s, transform .12s, background .15s; }
+    .btn:hover { opacity: .9; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary { background: #0a0a0a; color: #fef9ee; }
+    .btn-danger  { background: #991b1b; color: #fff; }
+    .btn-success { background: #15803d; color: #fff; }
+    .btn-ghost     { background: #ffffff; color: #1a1a1a; border: 1px solid #d4bf8d; }
+    .btn-ghost:hover { background: #fef3da; border-color: #b8862a; }
+    .btn-secondary { background: #b8862a; color: #ffffff; font-weight: 700; }
+    .btn-secondary:hover { background: #a3741f; }
     .btn-full    { width: 100%; justify-content: center; }
     .btn-approve { background: #15803d; color: #fff; font-size: 15px; font-weight: 700; padding: 14px 28px; }
     .btn-sm      { padding: 5px 10px; font-size: 12px; }
     .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 24px; }
-    .stat-card .value { font-size: 36px; font-weight: 700; color: #fff; }
-    .stat-card .label { font-size: 13px; color: #6b7280; margin-top: 4px; }
-    .card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .stat-card { background: #ffffff; border: 1px solid #ecdcb8; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px -4px rgba(10,10,10,0.04); }
+    .stat-card .value { font-size: 36px; font-weight: 700; color: #0a0a0a; }
+    .stat-card .label { font-size: 13px; color: #6b5f4a; margin-top: 4px; }
+    .card { background: #ffffff; border: 1px solid #ecdcb8; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px -4px rgba(10,10,10,0.04); }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    .card-header h2 { font-size: 16px; font-weight: 600; }
+    .card-header h2 { font-size: 16px; font-weight: 600; color: #0a0a0a; }
     table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 12px; border-bottom: 1px solid #2d2d44; }
-    td { padding: 12px 0; border-bottom: 1px solid #1f1f30; font-size: 14px; vertical-align: middle; }
+    th { text-align: left; font-size: 12px; color: #6b5f4a; text-transform: uppercase; letter-spacing: .05em; padding: 0 0 12px; border-bottom: 1px solid #ecdcb8; font-weight: 600; }
+    td { padding: 12px 0; border-bottom: 1px solid #f5e7c0; font-size: 14px; vertical-align: middle; color: #1a1a1a; }
     tr:last-child td { border-bottom: none; }
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-    .badge-active  { background: #14532d; color: #4ade80; }
-    .badge-frozen  { background: #1e3a5f; color: #60a5fa; }
-    .badge-score-high   { background: #14532d; color: #4ade80; }
-    .badge-score-mid    { background: #713f12; color: #fbbf24; }
-    .badge-score-low    { background: #450a0a; color: #f87171; }
+    .badge-active  { background: #ecfdf5; color: #166534; }
+    .badge-frozen  { background: #dbeafe; color: #1e40af; }
+    .badge-score-high   { background: #ecfdf5; color: #166534; }
+    .badge-score-mid    { background: #fef3da; color: #b8862a; }
+    .badge-score-low    { background: #fef2f2; color: #991b1b; }
     .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .newsletter-item { padding: 12px 0; border-bottom: 1px solid #1f1f30; }
+    .newsletter-item { padding: 12px 0; border-bottom: 1px solid #f5e7c0; }
     .newsletter-item:last-child { border-bottom: none; }
-    .newsletter-item .subject { font-size: 14px; font-weight: 500; }
-    .newsletter-item .meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .newsletter-item .subject { font-size: 14px; font-weight: 500; color: #0a0a0a; }
+    .newsletter-item .meta { font-size: 12px; color: #6b5f4a; margin-top: 4px; }
     .alert { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
-    .alert-success { background: #14532d; color: #4ade80; }
-    .alert-error   { background: #450a0a; color: #f87171; }
+    .alert-success { background: #ecfdf5; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .alert-info    { background: #fef3da; color: #92400e; border: 1px solid #fde68a; }
     .tab-bar { display: flex; gap: 4px; margin-bottom: 20px; }
-    .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; border: none; background: transparent; color: #6b7280; }
-    .tab.active { background: #2d2d44; color: #fff; }
-    #preview-frame { width: 100%; border: 1px solid #2d2d44; border-radius: 8px; height: 500px; background: #fff; }
+    .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; border: none; background: transparent; color: #6b5f4a; transition: background .15s, color .15s; }
+    .tab:hover { color: #0a0a0a; background: #fef3da; }
+    .tab.active { background: #15110a; color: #fff; }
+    #preview-frame { width: 100%; border: 1px solid #ecdcb8; border-radius: 8px; height: 500px; background: #fff; }
     #alert-box { display: none; }
-    .queue-section { border: 1px solid #cc0000; border-radius: 12px; background: #1a0a0a; margin-bottom: 28px; overflow: hidden; }
-    .queue-header { background: #2a0a0a; padding: 18px 24px; border-bottom: 1px solid #cc0000; display: flex; align-items: center; justify-content: space-between; }
-    .queue-header h2 { font-size: 15px; font-weight: 700; color: #ff4444; letter-spacing: .05em; text-transform: uppercase; }
+    .queue-section { border: 1px solid #ecdcb8; border-left: 4px solid #b8862a; border-radius: 12px; background: #ffffff; margin-bottom: 28px; overflow: hidden; box-shadow: 0 2px 8px -4px rgba(184,134,42,0.12); }
+    .queue-header { background: #fef3da; padding: 18px 24px; border-bottom: 1px solid #ecdcb8; display: flex; align-items: center; justify-content: space-between; }
+    .queue-header h2 { font-size: 14px; font-weight: 700; color: #b8862a; letter-spacing: .08em; text-transform: uppercase; }
     .queue-body { padding: 0 24px 20px; }
-    .custom-form { display: none; background: #0f0f13; border: 1px solid #2d2d44; border-radius: 8px; padding: 16px; margin-top: 12px; }
+    .custom-form { display: none; background: #fef9ee; border: 1px solid #ecdcb8; border-radius: 8px; padding: 16px; margin-top: 12px; }
     .custom-form.open { display: block; }
     .queue-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
-    .notice { font-size: 12px; color: #6b7280; margin-top: 8px; }
-    .rank-num { color: #6b7280; font-size: 13px; font-weight: 700; width: 28px; }
-    .article-title a { color: #e2e8f0; text-decoration: none; font-weight: 500; }
-    .article-title a:hover { color: #cc0000; }
-    .source-tag { font-size: 11px; color: #6b7280; margin-top: 2px; }
-    .time-ago { font-size: 12px; color: #6b7280; white-space: nowrap; }
+    .notice { font-size: 12px; color: #6b5f4a; margin-top: 8px; }
+    .rank-num { color: #6b5f4a; font-size: 13px; font-weight: 700; width: 28px; }
+    .article-title a { color: #0a0a0a; text-decoration: none; font-weight: 500; }
+    .article-title a:hover { color: #b8862a; }
+    .source-tag { font-size: 11px; color: #6b5f4a; margin-top: 2px; }
+    .time-ago { font-size: 12px; color: #6b5f4a; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -76,11 +82,11 @@
 <!-- Login screen -->
 <div id="login-screen" class="login-screen">
   <div class="login-box">
-    <h2><span style="color:#D4A017;font-weight:700;font-size:28px;">G6</span><span style="color:#D4A017;font-size:20px;margin:0 4px;">—</span><span style="color:#fff;font-weight:300;font-size:28px;">Ai</span></h2>
+    <h2><span style="color:#b8862a;font-weight:700;font-size:28px;">G6</span><span style="color:#b8862a;font-size:20px;margin:0 4px;">—</span><span style="color:#0a0a0a;font-weight:300;font-size:28px;">Ai</span></h2>
     <p>Admin Dashboard</p>
     <input type="password" id="token-input" placeholder="Admin token" onkeydown="if(event.key==='Enter')login()">
     <button class="btn btn-primary btn-full" onclick="login()">Sign in</button>
-    <p id="login-error" style="color:#f87171;font-size:13px;margin-top:12px;display:none;">Invalid token</p>
+    <p id="login-error" style="color:#991b1b;font-size:13px;margin-top:12px;display:none;">Invalid token</p>
   </div>
 </div>
 
@@ -113,54 +119,44 @@
             </tr>
           </thead>
           <tbody id="articles-table">
-            <tr><td colspan="6" style="color:#6b7280;text-align:center;padding:24px">Loading articles...</td></tr>
+            <tr><td colspan="6" style="color:#6b5f4a;text-align:center;padding:24px">Loading articles...</td></tr>
           </tbody>
         </table>
 
         <!-- Custom story form -->
         <button class="btn btn-ghost btn-sm" style="margin-top:16px;" onclick="toggleCustomForm()">+ Add Custom Story</button>
         <div id="custom-form" class="custom-form">
-          <input type="text" id="custom-title" placeholder="Story title *">
-          <input type="url" id="custom-url" placeholder="URL (optional)">
+          <input type="text" id="custom-title" placeholder="Story title" style="margin-bottom:8px;">
+          <input type="url"  id="custom-url"   placeholder="Source URL (optional)">
           <button class="btn btn-primary btn-sm" onclick="addCustomStory()">Add Story</button>
         </div>
 
-        <!-- Queue action buttons -->
         <div class="queue-actions">
           <button class="btn btn-secondary" onclick="runAggregator()" id="btn-aggregator">⚡ Run Aggregator (Dream 100 + Grok)</button>
           <button class="btn btn-ghost" onclick="previewNewsletter('premium')">👁 Preview Premium (dedollarizenews.com)</button>
           <button class="btn btn-ghost" onclick="previewNewsletter('free')">👁 Preview Free Teaser (Dream 100 + Grok)</button>
           <button class="btn btn-approve" onclick="approveTop5()">✅ APPROVE TOP 5 &amp; SCHEDULE FOR 8AM</button>
         </div>
-        <p class="notice">Auto-approves at 7:55am UTC if not manually approved</p>
+        <p class="notice">Manual override: re-arrange the queue, mark stories ✓ Keep, or remove with ✗. The first 5 ✓ entries become tomorrow's newsletter.</p>
       </div>
     </div>
 
-    <!-- Stats -->
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="value" id="stat-active">—</div>
-        <div class="label">Active subscribers</div>
-      </div>
-      <div class="stat-card">
-        <div class="value" id="stat-frozen">—</div>
-        <div class="label">Frozen (cancelled)</div>
-      </div>
-      <div class="stat-card">
-        <div class="value" id="stat-total">—</div>
-        <div class="label">Total ever</div>
-      </div>
+      <div class="stat-card"><div class="value" id="stat-active">—</div><div class="label">Active subscribers</div></div>
+      <div class="stat-card"><div class="value" id="stat-frozen">—</div><div class="label">Frozen subscribers</div></div>
+      <div class="stat-card"><div class="value" id="stat-total">—</div><div class="label">Total</div></div>
     </div>
 
-    <!-- Actions row -->
-    <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+    <div class="card">
+      <div class="card-header">
+        <h2>Newsletter Actions</h2>
+      </div>
       <button class="btn btn-success" onclick="sendNow()">📤 Send Both Now</button>
       <button class="btn btn-primary" onclick="sendPremium()">⭐ Send Premium Only</button>
       <button class="btn btn-secondary" onclick="sendFree()">📡 Send Free Teaser Only</button>
       <button class="btn btn-ghost" onclick="loadAll()">🔄 Refresh</button>
     </div>
 
-    <!-- Subscribers -->
     <div class="card">
       <div class="card-header">
         <h2>Subscribers</h2>
@@ -172,11 +168,15 @@
       <table>
         <thead>
           <tr>
-            <th>Email</th><th>Name</th><th>Status</th><th>Since</th><th>Action</th>
+            <th>Email</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Subscribed</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="subscribers-table">
-          <tr><td colspan="5" style="color:#6b7280;text-align:center;padding:32px">Loading...</td></tr>
+          <tr><td colspan="5" style="color:#6b5f4a;text-align:center;padding:32px">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -184,7 +184,7 @@
     <!-- Recent newsletters -->
     <div class="card">
       <div class="card-header"><h2>Recent newsletters</h2></div>
-      <div id="newsletters-list"><p style="color:#6b7280;font-size:14px">Loading...</p></div>
+      <div id="newsletters-list"><p style="color:#6b5f4a;font-size:14px">Loading...</p></div>
     </div>
 
     <!-- Analytics -->
@@ -193,14 +193,14 @@
         <h2>Newsletter Analytics</h2>
         <button class="btn btn-ghost btn-sm" onclick="loadAnalytics()">🔄 Refresh</button>
       </div>
-      <div id="analytics-list"><p style="color:#6b7280;font-size:14px">Loading...</p></div>
+      <div id="analytics-list"><p style="color:#6b5f4a;font-size:14px">Loading...</p></div>
     </div>
 
     <!-- Analytics drill-down modal -->
-    <div id="analytics-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;">
-      <div style="background:#1a1a2e;border:1px solid #2d2d44;border-radius:12px;padding:28px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;">
+    <div id="analytics-modal" style="display:none;position:fixed;inset:0;background:rgba(10,10,10,.5);z-index:100;align-items:center;justify-content:center;">
+      <div style="background:#ffffff;border:1px solid #ecdcb8;border-radius:12px;padding:28px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 24px 60px -20px rgba(10,10,10,0.3);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <h3 id="modal-title" style="font-size:16px;font-weight:600;"></h3>
+          <h3 id="modal-title" style="font-size:16px;font-weight:600;color:#0a0a0a;"></h3>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('analytics-modal').style.display='none'">✕ Close</button>
         </div>
         <div id="modal-body"></div>
@@ -215,12 +215,12 @@
       </div>
       <!-- Loading state -->
       <div id="preview-loading" style="display:none;padding:40px 24px;text-align:center;">
-        <div id="preview-status-msg" style="font-size:15px;color:#e2e8f0;margin-bottom:20px;min-height:24px;">Searching the web for today's top stories...</div>
-        <div style="background:#0f0f13;border-radius:8px;height:8px;overflow:hidden;margin-bottom:20px;">
-          <div id="preview-progress" style="height:100%;background:#6366f1;width:0%;transition:width 1s linear;border-radius:8px;"></div>
+        <div id="preview-status-msg" style="font-size:15px;color:#1a1a1a;margin-bottom:20px;min-height:24px;">Searching the web for today's top stories...</div>
+        <div style="background:#fef3da;border-radius:8px;height:8px;overflow:hidden;margin-bottom:20px;">
+          <div id="preview-progress" style="height:100%;background:#b8862a;width:0%;transition:width 1s linear;border-radius:8px;"></div>
         </div>
-        <div id="preview-countdown" style="font-size:48px;font-weight:700;color:#6366f1;line-height:1;">30</div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px;">seconds remaining</div>
+        <div id="preview-countdown" style="font-size:48px;font-weight:700;color:#b8862a;line-height:1;">30</div>
+        <div style="font-size:12px;color:#6b5f4a;margin-top:6px;">seconds remaining</div>
       </div>
       <iframe id="preview-frame" title="Newsletter preview"></iframe>
     </div>
@@ -279,13 +279,13 @@
   // ── Articles queue ──────────────────────────────────────────────────────────
   async function loadArticles() {
     const tbody = document.getElementById('articles-table');
-    tbody.innerHTML = '<tr><td colspan="6" style="color:#6b7280;text-align:center;padding:24px">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:#6b5f4a;text-align:center;padding:24px">Loading...</td></tr>';
     const data = await api('/articles/today');
     const articles = data.articles || [];
     articleOrder = articles.map(a => a.id);
 
     if (!articles.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:#6b7280;text-align:center;padding:24px">No articles yet today. Run the aggregator or add a custom story.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#6b5f4a;text-align:center;padding:24px">No articles yet today. Run the aggregator or add a custom story.</td></tr>';
       return;
     }
 
@@ -294,9 +294,9 @@
         <td class="rank-num">#${i + 1}</td>
         <td class="article-title">
           ${a.url ? `<a href="${a.url}" target="_blank">${a.title}</a>` : a.title}
-          <div class="source-tag">${a.source}${a.approved ? ' · <span style="color:#4ade80;">✓ approved</span>' : ''}</div>
+          <div class="source-tag">${a.source}${a.approved ? ' · <span style="color:#166534;">✓ approved</span>' : ''}</div>
         </td>
-        <td><span style="font-size:12px;color:#a0aec0;">${a.source}</span></td>
+        <td><span style="font-size:12px;color:#6b5f4a;">${a.source}</span></td>
         <td>${scoreBadge(a.score)}</td>
         <td class="time-ago">${timeAgo(a.published_at || a.created_at)}</td>
         <td>
@@ -385,8 +385,8 @@
       [stats] = await Promise.all([api('/stats'), loadSubscribers(currentTab), loadArticles(), loadAnalytics()]);
     } catch (e) {
       showAlert('Server is waking up — please wait a moment and click Refresh', 'error');
-      document.getElementById('subscribers-table').innerHTML = '<tr><td colspan="5" style="color:#f87171;text-align:center;padding:24px">Connection timed out — click Refresh to retry</td></tr>';
-      document.getElementById('articles-table').innerHTML = '<tr><td colspan="6" style="color:#f87171;text-align:center;padding:24px">Connection timed out — click Refresh to retry</td></tr>';
+      document.getElementById('subscribers-table').innerHTML = '<tr><td colspan="5" style="color:#991b1b;text-align:center;padding:24px">Connection timed out — click Refresh to retry</td></tr>';
+      document.getElementById('articles-table').innerHTML = '<tr><td colspan="6" style="color:#991b1b;text-align:center;padding:24px">Connection timed out — click Refresh to retry</td></tr>';
       return;
     }
 
@@ -396,7 +396,7 @@
 
     const nl = document.getElementById('newsletters-list');
     if (!stats.recentNewsletters?.length) {
-      nl.innerHTML = '<p style="color:#6b7280;font-size:14px">No newsletters sent yet.</p>';
+      nl.innerHTML = '<p style="color:#6b5f4a;font-size:14px">No newsletters sent yet.</p>';
     } else {
       nl.innerHTML = stats.recentNewsletters.map(n => `
         <div class="newsletter-item">
@@ -408,10 +408,10 @@
 
   async function loadSubscribers(status) {
     const tbody = document.getElementById('subscribers-table');
-    tbody.innerHTML = '<tr><td colspan="5" style="color:#6b7280;text-align:center;padding:24px">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#6b5f4a;text-align:center;padding:24px">Loading...</td></tr>';
     const data = await api(`/subscribers?status=${status}`);
     if (!data.subscribers?.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="color:#6b7280;text-align:center;padding:24px">No ${status} subscribers.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="color:#6b5f4a;text-align:center;padding:24px">No ${status} subscribers.</td></tr>`;
       return;
     }
     tbody.innerHTML = data.subscribers.map(s => `
@@ -529,12 +529,12 @@
   // ── Analytics ────────────────────────────────────────────────────────────────
   async function loadAnalytics() {
     const el = document.getElementById('analytics-list');
-    el.innerHTML = '<p style="color:#6b7280;font-size:14px">Loading...</p>';
+    el.innerHTML = '<p style="color:#6b5f4a;font-size:14px">Loading...</p>';
     try {
       const data = await api('/analytics');
       const newsletters = data.newsletters || [];
       if (!newsletters.length) {
-        el.innerHTML = '<p style="color:#6b7280;font-size:14px">No newsletters sent yet.</p>';
+        el.innerHTML = '<p style="color:#6b5f4a;font-size:14px">No newsletters sent yet.</p>';
         return;
       }
       el.innerHTML = `
@@ -558,15 +558,15 @@
                 <td><span class="badge ${n.tier === 'premium' ? 'badge-active' : 'badge-frozen'}">${n.tier}</span></td>
                 <td style="font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.subject}</td>
                 <td>${n.sent_to}</td>
-                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','open','${sid}')">${n.opens} <span style="color:#6b7280">(${openPct}%)</span></button></td>
-                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click','${sid}')">${n.clicks} <span style="color:#6b7280">(${clickPct}%)</span></button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','open','${sid}')">${n.opens} <span style="color:#6b5f4a">(${openPct}%)</span></button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click','${sid}')">${n.clicks} <span style="color:#6b5f4a">(${clickPct}%)</span></button></td>
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','bounce','${sid}')">${n.bounces}</button></td>
               </tr>`;
             }).join('')}
           </tbody>
         </table>`;
     } catch (e) {
-      el.innerHTML = `<p style="color:#f87171;font-size:14px">Failed to load analytics: ${e.message}</p>`;
+      el.innerHTML = `<p style="color:#991b1b;font-size:14px">Failed to load analytics: ${e.message}</p>`;
     }
   }
 
@@ -575,7 +575,7 @@
     const title = document.getElementById('modal-title');
     const body  = document.getElementById('modal-body');
     title.textContent = `${eventType.charAt(0).toUpperCase() + eventType.slice(1)}s — ${tier} — ${date}`;
-    body.innerHTML = '<p style="color:#6b7280">Loading...</p>';
+    body.innerHTML = '<p style="color:#6b5f4a">Loading...</p>';
     modal.style.display = 'flex';
 
     try {
@@ -585,7 +585,7 @@
       const data = await api(`/analytics/events?${params}`);
       const events = data.events || [];
       if (!events.length) {
-        body.innerHTML = '<p style="color:#6b7280;font-size:14px">No events recorded.</p>';
+        body.innerHTML = '<p style="color:#6b5f4a;font-size:14px">No events recorded.</p>';
         return;
       }
       body.innerHTML = `
@@ -595,13 +595,13 @@
             ${events.map(e => `
               <tr>
                 <td style="font-size:13px;">${e.email || '—'}</td>
-                <td style="font-size:12px;color:#6b7280;white-space:nowrap;">${new Date(e.event_time).toLocaleTimeString()}</td>
-                ${eventType === 'click' ? `<td style="font-size:11px;color:#6366f1;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.link || '—'}</td>` : ''}
+                <td style="font-size:12px;color:#6b5f4a;white-space:nowrap;">${new Date(e.event_time).toLocaleTimeString()}</td>
+                ${eventType === 'click' ? `<td style="font-size:11px;color:#b8862a;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.link || '—'}</td>` : ''}
               </tr>`).join('')}
           </tbody>
         </table>`;
     } catch (e) {
-      body.innerHTML = `<p style="color:#f87171">Error: ${e.message}</p>`;
+      body.innerHTML = `<p style="color:#991b1b">Error: ${e.message}</p>`;
     }
   }
 </script>
