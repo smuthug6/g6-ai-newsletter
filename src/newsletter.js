@@ -81,16 +81,14 @@ const TODAY = () => new Date().toLocaleDateString('en-US', {
 });
 
 const HEADER_HTML = (today) => `
-    <!-- Hero image -->
+    <!-- Header image -->
     <div style="margin:0;padding:0;">
-      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/inner-circle-hero.png" style="width:100%;display:block;height:220px;object-fit:cover;object-position:center top;" alt="De-Dollarize News Inner Circle">
+      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/inner-circle-header.png" style="width:100%;display:block;" alt="De-Dollarize News Inner Circle">
     </div>
 
-    <!-- Inner Circle branding -->
-    <div style="background:#cc0000;padding:24px 40px;text-align:center;">
-      <div style="color:#ffdddd;font-size:11px;font-weight:700;letter-spacing:.25em;text-transform:uppercase;margin-bottom:6px;">DE-DOLLARIZE NEWS</div>
-      <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:900;letter-spacing:3px;text-transform:uppercase;">INNER CIRCLE</h1>
-      <p style="color:#ffcccc;margin:8px 0 0;font-size:12px;letter-spacing:.05em;">${today}</p>
+    <!-- Date bar -->
+    <div style="background:#cc0000;padding:10px 40px;text-align:center;">
+      <p style="color:#ffcccc;margin:0;font-size:12px;letter-spacing:.05em;">${today}</p>
     </div>`;
 
 const FOOTER_HTML = `
