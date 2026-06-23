@@ -140,7 +140,7 @@ async function generatePremiumNewsletter(articles, _topics) {
 
   // Claude writes only the summary text — we build the HTML
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 2000,
     system: SYSTEM_PROMPT,
     messages: [{
@@ -193,7 +193,7 @@ async function generateFreeNewsletter(articles) {
   // Run Claude and Imagen (1 image only) concurrently
   const [response, imageUrls] = await Promise.all([
     client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       system: SYSTEM_PROMPT,
       messages: [{
@@ -262,7 +262,7 @@ async function generateNewsletter(topics) {
   console.log(`Generating newsletter via web search for topics: ${topicList}`);
 
   const searchResponse = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 4000,
     system: SYSTEM_PROMPT,
     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
@@ -275,7 +275,7 @@ async function generateNewsletter(topics) {
   const searchSummary = searchResponse.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
 
   const newsletterResponse = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 3000,
     system: SYSTEM_PROMPT,
     messages: [{

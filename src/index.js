@@ -34,15 +34,6 @@ app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 app.listen(PORT, () => {
   console.log(`🚀 G6 AI server running on port ${PORT}`);
 
-  // Keep Neon DB warm — ping every 4 minutes to prevent suspension
-  setInterval(() => db.query('SELECT 1').catch(() => {}), 4 * 60 * 1000);
-
-  // 7:00am UTC — fetch and score today's articles from all RSS feeds
-  cron.schedule('0 7 * * *', () => {
-    console.log('⏰ 7am UTC — running content aggregator');
-    runContentAggregator().catch(e => console.error('Aggregator error:', e.message));
-  }, { timezone: 'UTC' });
-
-  // 8:00am UTC — generate and send newsletters (auto-approves top 5 if not manually approved)
+  // startCronJob handles all scheduling (aggregator + auto-approve + send)
   startCronJob();
 });

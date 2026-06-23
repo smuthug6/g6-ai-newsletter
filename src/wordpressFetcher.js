@@ -1,8 +1,16 @@
 const WP_BASE = 'https://dedollarizenews.com/wp-json/wp/v2';
-const WP_HEADERS = {
-  Accept: 'application/json',
-  'User-Agent': 'Mozilla/5.0 (compatible; G6Newsletter/1.0; +https://dedollarizenews.com)',
-};
+
+function getWPHeaders() {
+  const headers = {
+    Accept: 'application/json',
+    'User-Agent': 'Mozilla/5.0 (compatible; G6Newsletter/1.0; +https://dedollarizenews.com)',
+  };
+  if (process.env.WP_APP_USERNAME && process.env.WP_APP_PASSWORD) {
+    const creds = Buffer.from(`${process.env.WP_APP_USERNAME}:${process.env.WP_APP_PASSWORD}`).toString('base64');
+    headers['Authorization'] = `Basic ${creds}`;
+  }
+  return headers;
+}
 
 function stripHtml(html = '') {
   return html
@@ -34,7 +42,7 @@ async function fetchTodayWPArticles() {
     `&orderby=date&order=desc` +
     `&_fields=id,title,excerpt,date,link,featured_media`;
 
-  const res = await fetch(url, { headers: WP_HEADERS });
+  const res = await fetch(url, { headers: getWPHeaders() });
   if (!res.ok) throw new Error(`WP posts API ${res.status}`);
 
   const posts = await res.json();
@@ -49,7 +57,7 @@ async function fetchTodayWPArticles() {
       try {
         const mRes = await fetch(
           `${WP_BASE}/media/${post.featured_media}?_fields=source_url`,
-          { headers: WP_HEADERS }
+          { headers: getWPHeaders() }
         );
         if (mRes.ok) {
           const m = await mRes.json();
