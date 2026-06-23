@@ -169,6 +169,52 @@ router.get('/articles/premium-preview', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── GHL contact counts by tag ─────────────────────────────────────────────────
+router.get('/ghl-contacts', adminAuth, async (req, res) => {
+  const axios = require('axios');
+  const GHL_BASE = 'https://services.leadconnectorhq.com';
+  const headers = { Authorization: `Bearer ${process.env.GHL_API_KEY}`, Version: '2021-04-15' };
+  const locationId = process.env.GHL_LOCATION_ID;
+
+  async function fetchTag(tag) {
+    const contacts = [];
+    let page = 1;
+    while (true) {
+      const r = await axios.get(`${GHL_BASE}/contacts/`, {
+        params: { locationId, tag, limit: 100, page },
+        headers,
+      });
+      const batch = r.data?.contacts || [];
+      contacts.push(...batch);
+      if (batch.length < 100) break;
+      page++;
+    }
+    return contacts;
+  }
+
+  try {
+    const [engaged, unengaged] = await Promise.all([
+      fetchTag('engaged - marketable email'),
+      fetchTag('unengaged - marketable email'),
+    ]);
+    const seen = new Set();
+    const total = [...engaged, ...unengaged].filter(c => {
+      const email = c.email || c.emailAddress || '';
+      if (!email || seen.has(email)) return false;
+      seen.add(email);
+      return true;
+    });
+    res.json({
+      engaged: engaged.length,
+      unengaged: unengaged.length,
+      totalUnique: total.length,
+      sample: total.slice(0, 5).map(c => c.email || c.emailAddress),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.response?.data?.message || err.message });
+  }
+});
+
 // ── Manually trigger content aggregator (Dream 100 + Grok) ───────────────────
 router.post('/run-aggregator', adminAuth, async (req, res) => {
   res.json({ message: 'Content aggregator started — check queue in ~30 seconds' });
