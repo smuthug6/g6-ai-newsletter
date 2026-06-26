@@ -37,7 +37,7 @@ const IMAGE_THEMES = [
 async function generateStoryImage(headline) {
   if (!process.env.GOOGLE_AI_KEY) return null;
   try {
-    const imagePrompt = `Dramatic financial news illustration for headline: "${headline}". Dark moody atmosphere, deep crimson and gold color palette, cinematic dramatic lighting, photorealistic editorial photography style, no text, no logos, no people, no faces`;
+    const imagePrompt = `Clean editorial photography for financial news headline: "${headline}". Bright natural lighting, neutral white or light background, modern professional magazine style, sharp and crisp, no text, no logos, no people, no faces`;
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
       {
