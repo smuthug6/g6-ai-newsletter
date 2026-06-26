@@ -80,10 +80,21 @@ const TODAY = () => new Date().toLocaleDateString('en-US', {
   weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
 });
 
-const HEADER_HTML = (today) => `
+const PREMIUM_HEADER_HTML = (today) => `
     <!-- Header image -->
     <div style="margin:0;padding:0;">
       <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/inner-circle-header.png" style="width:100%;display:block;" alt="De-Dollarize News Inner Circle">
+    </div>
+
+    <!-- Date bar -->
+    <div style="background:#cc0000;padding:10px 40px;text-align:center;">
+      <p style="color:#ffcccc;margin:0;font-size:12px;letter-spacing:.05em;">${today}</p>
+    </div>`;
+
+const FREE_HEADER_HTML = (today) => `
+    <!-- Header image -->
+    <div style="margin:0;padding:0;">
+      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/free-newsletter-header.png" style="width:100%;display:block;" alt="De-Dollarize News">
     </div>
 
     <!-- Date bar -->
@@ -100,13 +111,13 @@ const FOOTER_HTML = `
       </p>
     </div>`;
 
-function wrapHTML(bodyContent, today) {
+function wrapHTML(bodyContent, today, headerHtml) {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:600px;margin:0 auto;background:#ffffff;">
-${HEADER_HTML(today)}
+${headerHtml}
 
     <!-- Intro -->
     <div style="padding:28px 40px 0;border-bottom:2px solid #f0f0f0;margin-bottom:8px;">
@@ -174,7 +185,7 @@ Return ONLY a valid JSON array of strings — one summary per article, in order.
     </div>`;
   }).join('\n');
 
-  const html = wrapHTML(storiesHTML, today);
+  const html = wrapHTML(storiesHTML, today, PREMIUM_HEADER_HTML(today));
 
   // Subject: first article (most recent from WP, ordered newest-first)
   const subject = `Inner Circle: ${articles[0].title.substring(0, 65)}`;
@@ -245,7 +256,7 @@ Output all ${articles.length} teaser blocks back to back, then output this CTA b
 
   const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
   const storiesHTML = injectImageUrls(rawStoriesHTML, imageUrls);
-  const html = wrapHTML(storiesHTML, today);
+  const html = wrapHTML(storiesHTML, today, FREE_HEADER_HTML(today));
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News';
@@ -303,7 +314,7 @@ Fill in all stories. Make every headline dramatic and urgent.`,
   });
 
   const storiesHTML = newsletterResponse.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const html = wrapHTML(storiesHTML, today);
+  const html = wrapHTML(storiesHTML, today, PREMIUM_HEADER_HTML(today));
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News Alert';
