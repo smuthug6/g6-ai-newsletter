@@ -33,10 +33,10 @@ const IMAGE_THEMES = [
   'Pile of gold coins overflowing from a cracked safe, dark background, crimson lighting, no text, no people',
 ];
 
-async function generateStoryImage(index = 0) {
+async function generateStoryImage(headline) {
   if (!process.env.GOOGLE_AI_KEY) return null;
   try {
-    const imagePrompt = IMAGE_THEMES[index % IMAGE_THEMES.length];
+    const imagePrompt = `Dramatic financial news illustration for headline: "${headline}". Dark moody atmosphere, deep crimson and gold color palette, cinematic dramatic lighting, photorealistic editorial photography style, no text, no logos, no people, no faces`;
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
       {
@@ -56,10 +56,10 @@ async function generateStoryImage(index = 0) {
 
     const data = await response.json();
     const b64 = data?.predictions?.[0]?.bytesBase64Encoded || null;
-    if (!b64) console.warn(`Imagen: no image data for index ${index}. Response: ${JSON.stringify(data).slice(0, 200)}`);
+    if (!b64) console.warn(`Imagen: no image for "${headline}". Response: ${JSON.stringify(data).slice(0, 200)}`);
     return b64;
   } catch (err) {
-    console.error(`Imagen failed (index ${index}): ${err.message}`);
+    console.error(`Imagen failed for "${headline}": ${err.message}`);
     return null;
   }
 }
@@ -238,11 +238,12 @@ Output all ${articles.length} teaser blocks back to back, then output this CTA b
     </div>`,
       }],
     }),
-    // Generate 2 images sequentially and upload to S3
+    // Generate images from top 2 article headlines and upload to S3
     (async () => {
       const urls = [];
       for (let i = 0; i < 2; i++) {
-        const b64 = await generateStoryImage(i);
+        const headline = articles[i]?.title || articles[i]?.headline || `Story ${i + 1}`;
+        const b64 = await generateStoryImage(headline);
         if (b64) {
           try { urls.push(await uploadToS3(b64)); } catch (e) { console.error('S3 upload failed:', e.message); urls.push(null); }
         } else {
