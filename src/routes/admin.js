@@ -193,7 +193,7 @@ router.get('/ghl-contacts', adminAuth, async (req, res) => {
   }
 
   try {
-    const contacts = await fetchTag('ddn-free-test');
+    const contacts = await fetchTag('ddn-free');
     const seen = new Set();
     const unique = contacts.filter(c => {
       const email = c.email || c.emailAddress || '';
