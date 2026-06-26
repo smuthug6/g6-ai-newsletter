@@ -106,7 +106,7 @@ async function fetchRecentDDNArticles(count = 2) {
   const data = await res.json();
   if (data.status !== 'ok') throw new Error(`rss2json returned: ${data.status}`);
 
-  return data.items.map(item => {
+  return data.items.slice(0, count).map(item => {
     const rawUrl = item.enclosure?.link || item.thumbnail || null;
     const imageUrl = rawUrl ? rawUrl.replace(/-\d+x\d+(\.\w+)$/, '$1') : null;
     return {
