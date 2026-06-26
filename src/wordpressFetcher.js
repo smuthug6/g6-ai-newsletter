@@ -100,7 +100,7 @@ async function fetchArticlesForNewsletter() {
 
 // ── Fetch recent DDN articles via rss2json proxy (bypasses Cloudflare) ────────
 async function fetchRecentDDNArticles(count = 2) {
-  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://dedollarizenews.com/feed/')}&count=${count}`;
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://dedollarizenews.com/feed/')}`;
   const res = await fetch(apiUrl);
   if (!res.ok) throw new Error(`rss2json error: ${res.status}`);
   const data = await res.json();
