@@ -193,7 +193,8 @@ router.get('/ghl-contacts', adminAuth, async (req, res) => {
   }
 
   try {
-    const contacts = await fetchTag('ddn-free');
+    const tag = req.query.tag || 'ddn-free';
+    const contacts = await fetchTag(tag);
     const seen = new Set();
     const unique = contacts.filter(c => {
       const email = c.email || c.emailAddress || '';
@@ -202,7 +203,7 @@ router.get('/ghl-contacts', adminAuth, async (req, res) => {
       return true;
     });
     res.json({
-      tag: 'ddn-free-test',
+      tag,
       total: unique.length,
       sample: unique.slice(0, 5).map(c => c.email || c.emailAddress),
     });
