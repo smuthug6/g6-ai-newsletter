@@ -193,22 +193,18 @@ router.get('/ghl-contacts', adminAuth, async (req, res) => {
   }
 
   try {
-    const [engaged, unengaged] = await Promise.all([
-      fetchTag('engaged - marketable email'),
-      fetchTag('unengaged - marketable email'),
-    ]);
+    const contacts = await fetchTag('ddn-free-test');
     const seen = new Set();
-    const total = [...engaged, ...unengaged].filter(c => {
+    const unique = contacts.filter(c => {
       const email = c.email || c.emailAddress || '';
       if (!email || seen.has(email)) return false;
       seen.add(email);
       return true;
     });
     res.json({
-      engaged: engaged.length,
-      unengaged: unengaged.length,
-      totalUnique: total.length,
-      sample: total.slice(0, 5).map(c => c.email || c.emailAddress),
+      tag: 'ddn-free-test',
+      total: unique.length,
+      sample: unique.slice(0, 5).map(c => c.email || c.emailAddress),
     });
   } catch (err) {
     res.status(500).json({ error: err.response?.data?.message || err.message });

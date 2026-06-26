@@ -13,14 +13,11 @@ async function getPremiumRecipients() {
   return rows.map(r => ({ email: r.email }));
 }
 
-// ── Free: GHL contacts with engaged or unengaged marketable email tags ────────
+// ── Free: GHL contacts with ddn-free-test tag ────────────────────────────────
 async function getFreeRecipients() {
-  const [engaged, unengaged] = await Promise.all([
-    getContactsByTag('engaged - marketable email'),
-    getContactsByTag('unengaged - marketable email'),
-  ]);
+  const contacts = await getContactsByTag('ddn-free-test');
   const seen = new Set();
-  return [...engaged, ...unengaged]
+  return contacts
     .map(c => ({ email: (c.email || c.emailAddress || '').trim() }))
     .filter(c => {
       if (!c.email || seen.has(c.email)) return false;
