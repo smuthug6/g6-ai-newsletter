@@ -102,10 +102,15 @@ async function fetchArticlesForNewsletter() {
 const RSSParser = require('rss-parser');
 const ddnParser = new RSSParser({
   customFields: { item: ['media:content'] },
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+  },
 });
 
 async function fetchRecentDDNArticles(count = 2) {
-  const feed = await ddnParser.parseURL('https://dedollarizenews.com/feed');
+  const feed = await ddnParser.parseURL('https://dedollarizenews.com/feed/');
   return feed.items.slice(0, count).map(item => {
     const rawUrl = item['media:content']?.['$']?.url || null;
     const imageUrl = rawUrl ? rawUrl.replace(/-\d+x\d+(\.\w+)$/, '$1') : null;
