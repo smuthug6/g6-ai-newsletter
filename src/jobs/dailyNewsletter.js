@@ -33,7 +33,7 @@ async function getApprovedQueueArticles() {
   const { rows } = await db.query(
     `SELECT * FROM daily_articles
      WHERE approved = true AND created_at >= $1
-     ORDER BY score DESC LIMIT 5`,
+     ORDER BY score DESC LIMIT 3`,
     [todayStart.toISOString()]
   );
   return rows;

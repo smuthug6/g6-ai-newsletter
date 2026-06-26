@@ -152,7 +152,7 @@ router.post('/preview/free', adminAuth, async (req, res) => {
     const todayStart = new Date();
     todayStart.setUTCHours(0, 0, 0, 0);
     const { rows } = await db.query(
-      `SELECT * FROM daily_articles WHERE approved = true AND created_at >= $1 ORDER BY score DESC LIMIT 5`,
+      `SELECT * FROM daily_articles WHERE approved = true AND created_at >= $1 ORDER BY score DESC LIMIT 3`,
       [todayStart.toISOString()]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'No approved articles in content queue. Run the aggregator first, then approve articles.' });

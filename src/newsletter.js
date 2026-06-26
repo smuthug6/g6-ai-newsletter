@@ -1,5 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { fetchRecentDDNArticles } = require('./wordpressFetcher');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -193,7 +194,7 @@ Return ONLY a valid JSON array of strings — one summary per article, in order.
   return { subject, html };
 }
 
-// ── Function 2: Free teaser — Imagen images, 2-sentence teasers + CTA ────────
+// ── Function 2: Free teaser — 3 stories + images + DDN articles + 2 CTAs ──────
 async function generateFreeNewsletter(articles) {
   const today = TODAY();
 
@@ -201,8 +202,8 @@ async function generateFreeNewsletter(articles) {
     `Article ${i + 1}:\nTitle: ${a.title}\nSummary: ${a.excerpt || a.summary || '(no summary)'}`
   ).join('\n\n');
 
-  // Run Claude and Imagen (1 image only) concurrently
-  const [response, imageUrls] = await Promise.all([
+  // Run Claude, 3 Imagen images, and DDN RSS fetch all concurrently
+  const [response, imageUrls, ddnArticles] = await Promise.all([
     client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 2000,
@@ -215,19 +216,41 @@ You have these ${articles.length} stories:
 
 ${articleContext}
 
-For EACH story write a teaser — headline + exactly 2 punchy sentences, then cut off with "...". NO source links. Return ONLY the inner story blocks.
+For EACH story write a teaser — headline + exactly 2 punchy sentences, then cut off with "...". NO source links. Return ONLY the story blocks, nothing else.
 
-For each story, output this block:
+For each story output this exact block:
 
     <div style="padding:24px 40px 0;">
       <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;">
         <h2 style="color:#1a1a1a;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
         <p style="color:#555555;font-size:14px;line-height:1.7;margin:0;">[SENTENCE 1]. [SENTENCE 2]...</p>
       </div>
-    </div>
+    </div>`,
+      }],
+    }),
+    // Generate 3 images from top 3 headlines
+    (async () => {
+      const urls = [];
+      for (let i = 0; i < 3; i++) {
+        const headline = articles[i]?.title || `Story ${i + 1}`;
+        const b64 = await generateStoryImage(headline);
+        if (b64) {
+          try { urls.push(await uploadToS3(b64)); } catch (e) { console.error('S3 upload failed:', e.message); urls.push(null); }
+        } else {
+          urls.push(null);
+        }
+        if (i < 2) await new Promise(r => setTimeout(r, 3000));
+      }
+      return urls;
+    })(),
+    // Fetch 2 recent articles from dedollarizenews.com via RSS
+    fetchRecentDDNArticles(2).catch(e => { console.error('DDN RSS failed:', e.message); return []; }),
+  ]);
 
-Output all ${articles.length} teaser blocks back to back, then output this CTA block exactly as written:
+  const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  const storiesHTML = injectImageUrls(rawStoriesHTML, imageUrls);
 
+  const cta1HTML = `
     <div style="padding:32px 40px;text-align:center;background:#f9f9f9;margin-top:8px;border-top:3px solid #cc0000;">
       <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">MEMBERS ONLY</p>
       <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
@@ -235,29 +258,49 @@ Output all ${articles.length} teaser blocks back to back, then output this CTA b
         <span style="font-weight:400;font-size:13px;opacity:.9;">Subscribe to Inner Circle for dedollarizenews.com<br>premium content delivered daily</span>
       </a>
       <p style="color:#999999;font-size:12px;margin:16px 0 0;">Full analysis · Real sources · Wealth protection strategies</p>
-    </div>`,
-      }],
-    }),
-    // Generate images from top 2 article headlines and upload to S3
-    (async () => {
-      const urls = [];
-      for (let i = 0; i < 2; i++) {
-        const headline = articles[i]?.title || articles[i]?.headline || `Story ${i + 1}`;
-        const b64 = await generateStoryImage(headline);
-        if (b64) {
-          try { urls.push(await uploadToS3(b64)); } catch (e) { console.error('S3 upload failed:', e.message); urls.push(null); }
-        } else {
-          urls.push(null);
-        }
-        if (i === 0) await new Promise(r => setTimeout(r, 3000));
-      }
-      return urls;
-    })(),
-  ]);
+    </div>`;
 
-  const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const storiesHTML = injectImageUrls(rawStoriesHTML, imageUrls);
-  const html = wrapHTML(storiesHTML, today, FREE_HEADER_HTML(today));
+  const whatYouGetHTML = `
+    <div style="padding:28px 40px;background:#ffffff;border-top:1px solid #e8e8e8;">
+      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 16px;">What you get</p>
+      <p style="font-size:14px;color:#333333;line-height:1.7;margin:0 0 10px;">➡️ <strong>Full Access to <a href="https://www.dedollarizenews.com" style="color:#cc0000;text-decoration:none;">dedollarizenews.com</a></strong> — the running record of what the dollar is doing and who's moving away from it.</p>
+      <p style="font-size:14px;color:#333333;line-height:1.7;margin:0 0 10px;">➡️ <strong>Email Update</strong> when the story moves — central bank shifts, gold flows, policy turns. No filler.</p>
+      <p style="font-size:14px;color:#333333;line-height:1.7;margin:0;">➡️ <strong>A working framework</strong> for reading dollar news the way the people watching it actually do.</p>
+    </div>`;
+
+  const ddnHTML = ddnArticles.length > 0 ? `
+    <div style="padding:0 40px;border-top:1px solid #e8e8e8;">
+      ${ddnArticles.map(a => `
+      <div style="padding:20px 0;border-bottom:1px solid #e8e8e8;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          <tr>
+            ${a.imageUrl ? `<td width="140" style="vertical-align:top;padding-right:16px;">
+              <img src="${a.imageUrl}" width="140" style="display:block;width:140px;height:93px;object-fit:cover;border-radius:4px;" alt="">
+            </td>` : ''}
+            <td style="vertical-align:top;">
+              <p style="color:#cc0000;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 5px;">${a.category}</p>
+              <p style="color:#1a1a1a;font-size:15px;font-weight:700;margin:0 0 6px;line-height:1.35;">${a.title}</p>
+              <p style="color:#666666;font-size:13px;line-height:1.5;margin:0 0 8px;">${a.excerpt}...</p>
+              <a href="${a.url}" style="color:#cc0000;font-size:12px;font-weight:700;text-decoration:none;letter-spacing:0.3px;">Read the full story →</a>
+            </td>
+          </tr>
+        </table>
+      </div>`).join('')}
+    </div>` : '';
+
+  const cta2HTML = `
+    <div style="padding:36px 40px;text-align:center;background:#0d0d0d;margin-top:0;">
+      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 10px;">THE DOLLAR ISN'T WAITING</p>
+      <p style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 8px;line-height:1.3;">Still reading headlines?</p>
+      <p style="color:#aaaaaa;font-size:15px;margin:0 0 24px;line-height:1.5;">Start reading what's <em>behind</em> them.</p>
+      <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:18px 40px;border-radius:6px;font-weight:900;font-size:15px;letter-spacing:.5px;">
+        JOIN INNER CIRCLE NOW →
+      </a>
+      <p style="color:#555555;font-size:11px;margin:20px 0 0;">Join thousands protecting their wealth from the coming reset.</p>
+    </div>`;
+
+  const bodyContent = storiesHTML + cta1HTML + whatYouGetHTML + ddnHTML + cta2HTML;
+  const html = wrapHTML(bodyContent, today, FREE_HEADER_HTML(today));
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News';

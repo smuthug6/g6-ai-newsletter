@@ -98,4 +98,25 @@ async function fetchArticlesForNewsletter() {
   }
 }
 
-module.exports = { fetchArticlesForNewsletter };
+// ── Fetch recent DDN articles from RSS for free newsletter bottom section ─────
+const RSSParser = require('rss-parser');
+const ddnParser = new RSSParser({
+  customFields: { item: ['media:content'] },
+});
+
+async function fetchRecentDDNArticles(count = 2) {
+  const feed = await ddnParser.parseURL('https://dedollarizenews.com/feed');
+  return feed.items.slice(0, count).map(item => {
+    const rawUrl = item['media:content']?.['$']?.url || null;
+    const imageUrl = rawUrl ? rawUrl.replace(/-\d+x\d+(\.\w+)$/, '$1') : null;
+    return {
+      title: stripHtml(item.title || ''),
+      url: item.link,
+      category: item.categories?.[0] || 'Featured',
+      excerpt: (item.contentSnippet || '').slice(0, 150).trim(),
+      imageUrl,
+    };
+  });
+}
+
+module.exports = { fetchArticlesForNewsletter, fetchRecentDDNArticles };
