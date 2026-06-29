@@ -54,6 +54,8 @@ async function runTestSend(toEmail) {
 async function runAggregatorJob() {
   console.log('⏰ 7:00am — Running content aggregator + Grok ranking...');
   try {
+    // Wake up Neon DB before aggregator needs it
+    await db.query('SELECT 1').catch(() => {});
     await runContentAggregator();
     console.log('✅ Content queue updated with Grok top 10');
   } catch (err) {
