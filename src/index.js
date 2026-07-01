@@ -8,6 +8,7 @@ const webhookRouter = require('./routes/webhook');
 const adminRouter = require('./routes/admin');
 const oauthRouter = require('./routes/oauth');
 const sesEventsRouter = require('./routes/sesEvents');
+const unsubscribeRouter = require('./routes/unsubscribe');
 const { startCronJob } = require('./jobs/dailyNewsletter');
 const { runContentAggregator } = require('./jobs/contentAggregator');
 const db = require('./supabase');
@@ -26,6 +27,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/webhook/ghl', webhookRouter);
 app.use('/admin', adminRouter);
 app.use('/oauth', oauthRouter);
+app.use('/unsubscribe', unsubscribeRouter);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/admin.html')));
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));

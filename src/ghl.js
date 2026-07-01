@@ -31,4 +31,28 @@ async function getContactsByTag(tag) {
   return contacts;
 }
 
-module.exports = { getContactsByTag };
+// ── Look up a GHL contact ID by email ────────────────────────────────────────
+async function lookupContactByEmail(email) {
+  const apiKey = process.env.GHL_API_KEY;
+  const locationId = process.env.GHL_LOCATION_ID;
+  const res = await axios.get(`${GHL_BASE}/contacts/search/duplicate`, {
+    params: { locationId, email },
+    headers: { Authorization: `Bearer ${apiKey}`, Version: '2021-04-15' },
+  });
+  return res.data?.contact?.id || null;
+}
+
+// ── Remove tags from a GHL contact ───────────────────────────────────────────
+async function removeTagsFromContact(contactId, tags) {
+  const apiKey = process.env.GHL_API_KEY;
+  await axios.delete(`${GHL_BASE}/contacts/${contactId}/tags`, {
+    data: { tags },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Version: '2021-04-15',
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+module.exports = { getContactsByTag, lookupContactByEmail, removeTagsFromContact };

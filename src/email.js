@@ -1,4 +1,17 @@
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+const APP_URL = 'https://ai.g6platform.com';
+const UNSUBSCRIBE_PLACEHOLDER = 'UNSUBSCRIBE_URL_PLACEHOLDER';
+
+function generateUnsubscribeUrl(email) {
+  const sig = crypto
+    .createHmac('sha256', process.env.GHL_WEBHOOK_SECRET || 'fallback')
+    .update(email.toLowerCase())
+    .digest('hex')
+    .slice(0, 16);
+  return `${APP_URL}/unsubscribe?email=${encodeURIComponent(email)}&sig=${sig}`;
+}
 
 let _transporter = null;
 
@@ -44,7 +57,8 @@ async function sendBulk(contacts, subject, html, options = {}) {
     const email = contact.email || contact.emailAddress;
     if (!email) { failed++; continue; }
     try {
-      await sendEmail({ to: email, subject, html, tier, sendId });
+      const personalizedHtml = html.replace(UNSUBSCRIBE_PLACEHOLDER, generateUnsubscribeUrl(email));
+      await sendEmail({ to: email, subject, html: personalizedHtml, tier, sendId });
       sent++;
     } catch (err) {
       if (!firstError) firstError = `${email}: ${err.message}`;
