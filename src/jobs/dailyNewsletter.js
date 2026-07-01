@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const { randomUUID } = require('crypto');
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter } = require('../newsletter');
-const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
+const { fetchLatestInnerCircleArticle } = require('../wordpressFetcher');
 const { runContentAggregator, autoApproveTop5 } = require('./contentAggregator');
 const { getContactsByTag } = require('../ghl');
 const { sendEmail, sendBulk } = require('../email');
@@ -77,9 +77,8 @@ async function runAutoApproveJob() {
 async function runPremiumNewsletter() {
   console.log('📰 Sending premium newsletter only...');
   try {
-    const wpArticles = await fetchArticlesForNewsletter();
-    if (wpArticles.length === 0) throw new Error('No articles found on dedollarizenews.com today');
-    const premiumResult = await generatePremiumNewsletter(wpArticles);
+    const article = await fetchLatestInnerCircleArticle();
+    const premiumResult = await generatePremiumNewsletter(article);
     const premiumContacts = await getPremiumRecipients();
     console.log(`📧 Premium recipients: ${premiumContacts.length}`);
     const premiumSendId = randomUUID();
@@ -87,7 +86,7 @@ async function runPremiumNewsletter() {
     console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}`);
     await db.query(
       `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, $3, $4, 'premium', $5)`,
-      [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com'], premiumSendId]
+      [premiumResult.subject, premiumResult.html, premiumSend.sent, ['inner-circle'], premiumSendId]
     );
     return premiumSend;
   } catch (err) {
@@ -125,27 +124,23 @@ async function runDailyNewsletter() {
   console.log('📰 Starting daily newsletter job...');
 
   try {
-    // ── PREMIUM: dedollarizenews.com articles with real WP images ─────────────
-    const wpArticles = await fetchArticlesForNewsletter();
-    if (wpArticles.length === 0) {
-      console.error('❌ No WP articles found — premium newsletter cancelled');
-    } else {
-      console.log(`📄 ${wpArticles.length} articles from dedollarizenews.com`);
-      const premiumResult = await generatePremiumNewsletter(wpArticles);
-
+    // ── PREMIUM: latest Inner Circle article ──────────────────────────────────
+    try {
+      const article = await fetchLatestInnerCircleArticle();
+      console.log(`📄 Inner Circle: "${article.title}" by ${article.author}`);
+      const premiumResult = await generatePremiumNewsletter(article);
       const premiumContacts = await getPremiumRecipients();
       console.log(`📧 Premium recipients: ${premiumContacts.length}`);
       if (premiumContacts.length === 0) console.warn('⚠️  No active subscribers in DB');
-
       const premiumSendId = randomUUID();
       const premiumSend = await sendBulk(premiumContacts, premiumResult.subject, premiumResult.html, { tier: 'premium', sendId: premiumSendId });
       console.log(`✅ Premium sent — sent: ${premiumSend.sent}, failed: ${premiumSend.failed}${premiumSend.firstError ? `, error: ${premiumSend.firstError}` : ''}`);
-
       await db.query(
-        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
-         VALUES ($1, $2, $3, $4, 'premium', $5)`,
-        [premiumResult.subject, premiumResult.html, premiumSend.sent, ['dedollarizenews.com'], premiumSendId]
+        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, $3, $4, 'premium', $5)`,
+        [premiumResult.subject, premiumResult.html, premiumSend.sent, ['inner-circle'], premiumSendId]
       );
+    } catch (err) {
+      console.error('❌ Premium newsletter failed:', err.message);
     }
 
     // ── FREE TEASER: approved content queue (Dream 100 + Grok ranked) ─────────

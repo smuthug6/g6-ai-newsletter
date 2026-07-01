@@ -86,4 +86,27 @@ async function fetchRecentDDNArticles(count = 2) {
   });
 }
 
-module.exports = { fetchArticlesForNewsletter, fetchRecentDDNArticles };
+// ── Fetch latest Inner Circle article for premium newsletter ──────────────────
+async function fetchLatestInnerCircleArticle() {
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://dedollarizenews.com/category/inner-circle/feed/')}`;
+  const res = await fetch(apiUrl);
+  if (!res.ok) throw new Error(`rss2json error: ${res.status}`);
+  const data = await res.json();
+  if (data.status !== 'ok') throw new Error(`rss2json returned: ${data.status}`);
+  if (!data.items?.length) throw new Error('No Inner Circle articles found');
+
+  const item = data.items[0];
+  const rawUrl = item.enclosure?.link || item.thumbnail || null;
+  const imageUrl = rawUrl ? rawUrl.replace(/-\d+x\d+(\.\w+)$/, '$1') : null;
+
+  return {
+    title: stripHtml(item.title || ''),
+    excerpt: stripHtml(item.description || ''),
+    author: item.author || 'De-Dollarize News',
+    url: item.link,
+    imageUrl,
+    pubDate: item.pubDate,
+  };
+}
+
+module.exports = { fetchArticlesForNewsletter, fetchLatestInnerCircleArticle, fetchRecentDDNArticles };

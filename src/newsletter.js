@@ -141,55 +141,53 @@ function extractJSONArray(text) {
   return null;
 }
 
-// ── Function 1: Premium newsletter — WP featured images, Claude summaries ─────
-// articles: [{ title, excerpt, url, imageUrl, publishedTime, source }]
-async function generatePremiumNewsletter(articles, _topics) {
+// ── Function 1: Premium newsletter — single Inner Circle article ──────────────
+// article: { title, excerpt, author, url, imageUrl, pubDate }
+async function generatePremiumNewsletter(article) {
   const today = TODAY();
 
-  const articleContext = articles.map((a, i) =>
-    `Article ${i + 1}:\nTitle: ${a.title}\nExcerpt: ${a.excerpt || a.summary || '(no excerpt)'}`
-  ).join('\n\n');
-
-  // Claude writes only the summary text — we build the HTML
+  // Claude writes a faithful full paragraph from the excerpt
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2000,
+    max_tokens: 800,
     system: SYSTEM_PROMPT,
     messages: [{
       role: 'user',
-      content: `Write a 2-3 sentence urgent, wealth-protection email summary for each article below. Expose what the establishment is hiding. Make readers feel the urgency to act now.
+      content: `You are writing the intro for the De-Dollarize News Inner Circle premium newsletter.
 
-${articleContext}
+Today's Inner Circle article:
+Title: ${article.title}
+Author: ${article.author}
+Excerpt: ${article.excerpt}
 
-Return ONLY a valid JSON array of strings — one summary per article, in order. No other text.
-["Summary 1...", "Summary 2...", ...]`,
+Write ONE compelling paragraph (5-7 sentences) for premium subscribers. Stay faithful to the content — do not invent facts. Expand naturally on what the excerpt says, keep the insider financial tone, and end with a sentence that makes them eager to read the full analysis. Return only the paragraph, no HTML.`,
     }],
   });
 
-  const rawText = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const summaries = extractJSONArray(rawText) || [];
+  const paragraph = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
 
-  // Build story blocks — WP featured image above each story card
-  const storiesHTML = articles.map((article, i) => {
-    const summary = typeof summaries[i] === 'string' ? summaries[i] : (article.excerpt || article.summary || '');
-    const imageHtml = article.imageUrl
-      ? `<img src="${article.imageUrl}" style="width:100%;height:220px;object-fit:cover;display:block;margin-bottom:0;border-radius:4px 4px 0 0;" alt="">`
-      : '';
-    return `
-    <div style="padding:24px 40px 0;">
-      ${imageHtml}
-      <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;${article.imageUrl ? 'padding-top:12px;' : ''}">
-        <h2 style="color:#1a1a1a;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">${article.title}</h2>
-        <p style="color:#555555;font-size:14px;line-height:1.7;margin:0 0 10px;">${summary}</p>
-        <a href="${article.url}" style="color:#cc0000;font-size:12px;text-decoration:none;font-weight:700;letter-spacing:0.5px;">READ THE FULL ANALYSIS →</a>
+  const bodyHTML = `
+    <!-- Featured image -->
+    ${article.imageUrl ? `
+    <div style="margin:0;padding:0;">
+      <img src="${article.imageUrl}" style="width:100%;display:block;max-height:380px;object-fit:cover;" alt="${article.title}">
+    </div>` : ''}
+
+    <!-- Article -->
+    <div style="padding:32px 40px 0;">
+      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 14px;">INNER CIRCLE · ${today}</p>
+      <h2 style="color:#1a1a1a;font-size:26px;font-weight:800;margin:0 0 10px;line-height:1.3;">${article.title}</h2>
+      <p style="color:#888888;font-size:13px;margin:0 0 24px;">By <strong>${article.author}</strong></p>
+      <p style="color:#333333;font-size:16px;line-height:1.8;margin:0 0 32px;">${paragraph}</p>
+      <div style="text-align:center;margin-bottom:40px;">
+        <a href="${article.url}" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:18px 40px;border-radius:6px;font-weight:900;font-size:15px;letter-spacing:.5px;">
+          READ THE FULL INNER CIRCLE ANALYSIS →
+        </a>
       </div>
     </div>`;
-  }).join('\n');
 
-  const html = wrapHTML(storiesHTML, today, PREMIUM_HEADER_HTML(today));
-
-  // Subject: first article (most recent from WP, ordered newest-first)
-  const subject = `Inner Circle: ${articles[0].title.substring(0, 65)}`;
+  const html = wrapHTML(bodyHTML, today, PREMIUM_HEADER_HTML(today));
+  const subject = `Inner Circle: ${article.title.substring(0, 65)}`;
 
   return { subject, html };
 }

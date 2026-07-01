@@ -4,7 +4,7 @@ const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
 const { runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob } = require('../jobs/dailyNewsletter');
 const { testSesConnection } = require('../email');
-const { fetchArticlesForNewsletter } = require('../wordpressFetcher');
+const { fetchLatestInnerCircleArticle } = require('../wordpressFetcher');
 
 function adminAuth(req, res, next) {
   const token = req.headers['x-admin-token'] || req.query.token;
@@ -139,9 +139,8 @@ router.post('/approve-top5', adminAuth, async (req, res) => {
 // ── Preview Premium — live dedollarizenews.com WP articles ────────────────────
 router.post('/preview/premium', adminAuth, async (req, res) => {
   try {
-    const articles = await fetchArticlesForNewsletter();
-    if (articles.length === 0) return res.status(404).json({ error: 'No articles found on dedollarizenews.com today.' });
-    const result = await generatePremiumNewsletter(articles);
+    const article = await fetchLatestInnerCircleArticle();
+    const result = await generatePremiumNewsletter(article);
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -164,8 +163,8 @@ router.post('/preview/free', adminAuth, async (req, res) => {
 // ── Today's dedollarizenews.com articles (read-only, for dashboard display) ───
 router.get('/articles/premium-preview', adminAuth, async (req, res) => {
   try {
-    const articles = await fetchArticlesForNewsletter();
-    res.json({ articles });
+    const article = await fetchLatestInnerCircleArticle();
+    res.json({ articles: [article] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
