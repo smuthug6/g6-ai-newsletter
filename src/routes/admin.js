@@ -314,52 +314,5 @@ router.get('/analytics/events', adminAuth, async (req, res) => {
   }
 });
 
-// ── ONE-TIME: migrate GHL ddn-inner-circle contacts to subscribers table ───────
-router.post('/migrate-subscribers', adminAuth, async (req, res) => {
-  const axios = require('axios');
-  const GHL_BASE = 'https://services.leadconnectorhq.com';
-  const headers = { Authorization: `Bearer ${process.env.GHL_API_KEY}`, Version: '2021-04-15' };
-  const locationId = process.env.GHL_LOCATION_ID;
-
-  try {
-    // 1. Fetch all ddn-inner-circle contacts from GHL
-    const contacts = [];
-    let page = 1;
-    while (true) {
-      const r = await axios.get(`${GHL_BASE}/contacts/`, {
-        params: { locationId, tag: 'ddn-inner-circle', limit: 100, page },
-        headers,
-      });
-      const batch = r.data?.contacts || [];
-      contacts.push(...batch);
-      if (batch.length < 100) break;
-      page++;
-    }
-
-    if (contacts.length === 0) return res.status(404).json({ error: 'No contacts found with ddn-inner-circle tag' });
-
-    // 2. Clear all existing subscribers
-    await db.query('DELETE FROM subscribers');
-
-    // 3. Insert GHL contacts as active subscribers
-    let inserted = 0;
-    for (const c of contacts) {
-      const email = (c.email || c.emailAddress || '').trim();
-      if (!email) continue;
-      const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || null;
-      await db.query(
-        `INSERT INTO subscribers (email, full_name, ghl_contact_id, status)
-         VALUES ($1, $2, $3, 'active')
-         ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, ghl_contact_id = EXCLUDED.ghl_contact_id, status = 'active', frozen_at = NULL`,
-        [email, name, c.id || null]
-      );
-      inserted++;
-    }
-
-    res.json({ success: true, deleted: 'all previous', inserted, sample: contacts.slice(0, 5).map(c => c.email || c.emailAddress) });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 module.exports = router;
