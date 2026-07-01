@@ -166,6 +166,8 @@ PARAGRAPH 1 (4-5 sentences): Faithfully present the core content from the excerp
 
 PARAGRAPH 2 (4-5 sentences): Expand on the same topic with more depth. Explore why this matters right now, what the implications are, and what's at stake for wealth protection. Build genuine curiosity and urgency — end with a sentence that makes them absolutely want to click and read the full Inner Circle analysis.
 
+Important: Never use em dashes (—) anywhere. Use commas, periods, or rephrase instead.
+
 Return only the two paragraphs separated by a blank line. No labels, no HTML, no headings.`,
     }],
   });
