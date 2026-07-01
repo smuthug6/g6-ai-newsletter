@@ -108,7 +108,7 @@ const FOOTER_HTML = `
     <div style="background:#f5f5f5;padding:28px 40px;margin-top:32px;border-top:3px solid #cc0000;">
       <p style="color:#888888;font-size:12px;text-align:center;margin:0;line-height:1.8;">
         Protecting your wealth from the system. dedollarizenews.com<br>
-        <a href="https://sites.leadconnectorhq.com/preview/iWCmwhl0MwsTeCHsEUqp?notrack=true" style="color:#cc0000;text-decoration:none;">Unsubscribe</a>
+        <a href="https://sites.leadconnectorhq.com/preview/iWCmwhl0MwsTeCHsEUqp?notrack=true" style="color:#bbbbbb;text-decoration:none;font-size:11px;">Unsubscribe</a>
       </p>
     </div>`;
 
