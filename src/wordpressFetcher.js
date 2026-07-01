@@ -1,16 +1,3 @@
-const WP_BASE = 'https://dedollarizenews.com/wp-json/wp/v2';
-
-function getWPHeaders() {
-  const headers = {
-    Accept: 'application/json',
-    'User-Agent': 'Mozilla/5.0 (compatible; G6Newsletter/1.0; +https://dedollarizenews.com)',
-  };
-  if (process.env.WP_APP_USERNAME && process.env.WP_APP_PASSWORD) {
-    const creds = Buffer.from(`${process.env.WP_APP_USERNAME}:${process.env.WP_APP_PASSWORD}`).toString('base64');
-    headers['Authorization'] = `Basic ${creds}`;
-  }
-  return headers;
-}
 
 function stripHtml(html = '') {
   return html
@@ -29,71 +16,51 @@ function stripHtml(html = '') {
     .trim();
 }
 
+// ── Fetch today's DDN articles via rss2json (bypasses Cloudflare) ─────────────
 async function fetchTodayWPArticles() {
-  // Use Eastern Time midnight so only today's ET articles are fetched
-  const ET_OFFSET_MS = 4 * 60 * 60 * 1000; // EDT = UTC-4
-  const nowET = new Date(Date.now() - ET_OFFSET_MS);
-  const todayET = nowET.toISOString().split('T')[0]; // "2026-05-26"
-  const after = `${todayET}T00:00:00`; // WP interprets without Z as site timezone
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://dedollarizenews.com/feed/')}`;
+  const res = await fetch(apiUrl);
+  if (!res.ok) throw new Error(`rss2json error: ${res.status}`);
+  const data = await res.json();
+  if (data.status !== 'ok') throw new Error(`rss2json returned: ${data.status}`);
 
-  const url =
-    `${WP_BASE}/posts?per_page=50` +
-    `&after=${after}` +
-    `&orderby=date&order=desc` +
-    `&_fields=id,title,excerpt,date,link,featured_media`;
+  // Filter articles published in last 24 hours
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  let items = data.items.filter(item => item.pubDate && new Date(item.pubDate + ' UTC') >= cutoff);
 
-  const res = await fetch(url, { headers: getWPHeaders() });
-  if (!res.ok) throw new Error(`WP posts API ${res.status}`);
+  // Fallback to latest 5 if nothing recent (e.g. weekend/holiday)
+  if (items.length === 0) {
+    console.warn('No articles in last 24h — falling back to latest 5');
+    items = data.items.slice(0, 5);
+  }
 
-  const posts = await res.json();
-  if (!Array.isArray(posts) || posts.length === 0) return [];
+  console.log(`RSS via rss2json: ${items.length} articles for premium newsletter`);
 
-  console.log(`WP API: ${posts.length} posts for ${todayET} ET`);
-
-  // Fetch all featured images in parallel
-  const articles = await Promise.all(posts.map(async (post) => {
-    let imageUrl = null;
-    if (post.featured_media) {
-      try {
-        const mRes = await fetch(
-          `${WP_BASE}/media/${post.featured_media}?_fields=source_url`,
-          { headers: getWPHeaders() }
-        );
-        if (mRes.ok) {
-          const m = await mRes.json();
-          imageUrl = m.source_url || null;
-        }
-      } catch (_) { /* image is optional */ }
-    }
-
-    const postDate = new Date(post.date);
-    const timeStr = postDate.toLocaleTimeString('en-US', {
-      hour: 'numeric', minute: '2-digit', hour12: true,
-    });
-
+  return items.map(item => {
+    const rawUrl = item.enclosure?.link || item.thumbnail || null;
+    const imageUrl = rawUrl ? rawUrl.replace(/-\d+x\d+(\.\w+)$/, '$1') : null;
+    const pubDate = new Date(item.pubDate + ' UTC');
+    const timeStr = pubDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     return {
-      title: stripHtml(post.title?.rendered || ''),
-      excerpt: stripHtml(post.excerpt?.rendered || ''),
-      url: post.link,
+      title: stripHtml(item.title || ''),
+      excerpt: stripHtml(item.description || '').slice(0, 300).trim(),
+      url: item.link,
       imageUrl,
       publishedTime: `Today at ${timeStr}`,
       source: 'De-Dollarize News',
     };
-  }));
-
-  return articles.filter(a => a.title && a.url);
+  }).filter(a => a.title && a.url);
 }
 
-
-// Primary entry point: WP articles from last 48h, no fallback
+// Primary entry point for premium newsletter
 async function fetchArticlesForNewsletter() {
   try {
-    const wpArticles = await fetchTodayWPArticles();
-    if (wpArticles.length > 0) return wpArticles;
-    console.warn('No WP articles found in last 48h — premium newsletter will be skipped');
+    const articles = await fetchTodayWPArticles();
+    if (articles.length > 0) return articles;
+    console.warn('No articles found — premium newsletter will be skipped');
     return [];
   } catch (err) {
-    console.warn(`WP API failed (${err.message}) — premium newsletter will be skipped`);
+    console.warn(`Article fetch failed (${err.message}) — premium newsletter will be skipped`);
     return [];
   }
 }
