@@ -146,25 +146,34 @@ function extractJSONArray(text) {
 async function generatePremiumNewsletter(article) {
   const today = TODAY();
 
-  // Claude writes a faithful full paragraph from the excerpt
+  // Claude writes two paragraphs — first faithful, second expands with curiosity
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 800,
+    max_tokens: 1200,
     system: SYSTEM_PROMPT,
     messages: [{
       role: 'user',
-      content: `You are writing the intro for the De-Dollarize News Inner Circle premium newsletter.
+      content: `You are writing the body for the De-Dollarize News Inner Circle premium newsletter.
 
 Today's Inner Circle article:
 Title: ${article.title}
 Author: ${article.author}
 Excerpt: ${article.excerpt}
 
-Write ONE compelling paragraph (5-7 sentences) for premium subscribers. Stay faithful to the content — do not invent facts. Expand naturally on what the excerpt says, keep the insider financial tone, and end with a sentence that makes them eager to read the full analysis. Return only the paragraph, no HTML.`,
+Write exactly TWO paragraphs separated by a blank line:
+
+PARAGRAPH 1 (4-5 sentences): Faithfully present the core content from the excerpt. Do not invent facts — stay close to what the excerpt says. Use the same insider, urgent financial voice.
+
+PARAGRAPH 2 (4-5 sentences): Expand on the same topic with more depth. Explore why this matters right now, what the implications are, and what's at stake for wealth protection. Build genuine curiosity and urgency — end with a sentence that makes them absolutely want to click and read the full Inner Circle analysis.
+
+Return only the two paragraphs separated by a blank line. No labels, no HTML, no headings.`,
     }],
   });
 
-  const paragraph = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  const rawText = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  const parts = rawText.split(/\n\n+/);
+  const para1 = parts[0] || rawText;
+  const para2 = parts[1] || '';
 
   const bodyHTML = `
     <!-- Featured image -->
@@ -178,7 +187,8 @@ Write ONE compelling paragraph (5-7 sentences) for premium subscribers. Stay fai
       <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 14px;">INNER CIRCLE · ${today}</p>
       <h2 style="color:#1a1a1a;font-size:26px;font-weight:800;margin:0 0 10px;line-height:1.3;">${article.title}</h2>
       <p style="color:#888888;font-size:13px;margin:0 0 24px;">By <strong>${article.author}</strong></p>
-      <p style="color:#333333;font-size:16px;line-height:1.8;margin:0 0 32px;">${paragraph}</p>
+      <p style="color:#333333;font-size:16px;line-height:1.8;margin:0 0 20px;">${para1}</p>
+      ${para2 ? `<p style="color:#333333;font-size:16px;line-height:1.8;margin:0 0 32px;">${para2}</p>` : ''}
       <div style="text-align:center;margin-bottom:40px;">
         <a href="${article.url}" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:18px 40px;border-radius:6px;font-weight:900;font-size:15px;letter-spacing:.5px;">
           READ THE FULL INNER CIRCLE ANALYSIS →
