@@ -324,6 +324,7 @@
 
         <div class="queue-actions">
           <button class="btn btn-secondary" onclick="runAggregator()" id="btn-aggregator">⚡ Run Aggregator (Dream 100 + Grok)</button>
+          <button class="btn btn-ghost" onclick="runBounceCleanup()" id="btn-bounce">🧹 Process Bounces</button>
           <button class="btn btn-ghost" onclick="previewNewsletter('premium')">👁 Preview Premium (dedollarizenews.com)</button>
           <button class="btn btn-ghost" onclick="previewNewsletter('free')">👁 Preview Free Teaser (Dream 100 + Grok)</button>
           <button class="btn btn-approve" onclick="approveTop5()">✅ APPROVE TOP 5 &amp; SCHEDULE FOR 8AM</button>
@@ -557,6 +558,21 @@
     if (data.error) return showAlert(data.error, 'error');
     showAlert(`✅ Top ${data.approved} articles approved and scheduled for 8am`);
     loadArticles();
+  }
+
+  async function runBounceCleanup() {
+    const btn = document.getElementById('btn-bounce');
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+    showAlert('Bounce cleanup started — check Render logs for results', 'info');
+    const data = await api('/run-bounce-cleanup', 'POST');
+    if (data.error) {
+      showAlert('Bounce cleanup failed: ' + data.error, 'error');
+    } else {
+      showAlert('✅ Bounce cleanup running — hard bounces being removed from GHL and frozen in DB');
+    }
+    btn.disabled = false;
+    btn.textContent = '🧹 Process Bounces';
   }
 
   async function runAggregator() {
