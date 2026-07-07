@@ -42,12 +42,13 @@ router.post('/', express.text({ type: '*/*' }), async (req, res) => {
   const tier = event.mail?.tags?.tier?.[0] || null;
   const sendId = event.mail?.tags?.send_id?.[0] || null;
   const eventTime = event.mail?.timestamp || new Date().toISOString();
+  const bounceType = eventType === 'bounce' ? (event.bounce?.bounceType || null) : null;
 
   try {
     await db.query(
-      `INSERT INTO email_events (email, event_type, link, tier, send_id, event_time)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [email, eventType, link, tier, sendId, eventTime]
+      `INSERT INTO email_events (email, event_type, link, tier, send_id, event_time, bounce_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [email, eventType, link, tier, sendId, eventTime, bounceType]
     );
   } catch (e) {
     console.error('Failed to save SES event:', e.message);

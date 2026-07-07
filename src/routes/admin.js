@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob } = require('../jobs/dailyNewsletter');
+const { runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runBounceCleanup } = require('../jobs/dailyNewsletter');
 const { testSesConnection } = require('../email');
 const { fetchLatestInnerCircleArticle } = require('../wordpressFetcher');
 
@@ -215,6 +215,12 @@ router.get('/ghl-contacts', adminAuth, async (req, res) => {
 router.post('/run-aggregator', adminAuth, async (req, res) => {
   res.json({ message: 'Content aggregator started — check queue in ~30 seconds' });
   runAggregatorJob().catch(err => console.error('Aggregator error:', err.message));
+});
+
+// ── Manually trigger bounce cleanup ──────────────────────────────────────────
+router.post('/run-bounce-cleanup', adminAuth, async (req, res) => {
+  res.json({ message: 'Bounce cleanup started — check Render logs for results' });
+  runBounceCleanup().catch(err => console.error('Bounce cleanup error:', err.message));
 });
 
 // ── Test SES connectivity ─────────────────────────────────────────────────────

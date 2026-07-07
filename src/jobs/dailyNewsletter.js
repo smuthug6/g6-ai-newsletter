@@ -4,7 +4,7 @@ const db = require('../supabase');
 const { generatePremiumNewsletter, generateFreeNewsletter } = require('../newsletter');
 const { fetchLatestInnerCircleArticle } = require('../wordpressFetcher');
 const { runContentAggregator, autoApproveTop5 } = require('./contentAggregator');
-const { getContactsByTag } = require('../ghl');
+const { getContactsByTag, lookupContactByEmail, removeTagsFromContact, addTagToContact } = require('../ghl');
 const { sendEmail, sendBulk } = require('../email');
 
 // ── Premium: Neon DB active subscribers ──────────────────────────────────────
@@ -176,6 +176,56 @@ async function runDailyNewsletter() {
   }
 }
 
+// ── Bounce cleanup: runs after 8am send ──────────────────────────────────────
+async function runBounceCleanup() {
+  console.log('🧹 Running bounce cleanup...');
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  try {
+    const { rows: bounces } = await db.query(`
+      SELECT DISTINCT email, tier
+      FROM email_events
+      WHERE event_type = 'bounce'
+      AND bounce_type = 'Permanent'
+      AND event_time >= $1
+    `, [todayStart.toISOString()]);
+
+    if (bounces.length === 0) {
+      console.log('✅ No hard bounces today');
+      return;
+    }
+
+    console.log(`🔍 ${bounces.length} hard bounce(s) to process`);
+    let freed = 0, premiumFrozen = 0, failed = 0;
+
+    for (const { email, tier } of bounces) {
+      try {
+        if (tier === 'free') {
+          const contactId = await lookupContactByEmail(email);
+          if (contactId) {
+            await removeTagsFromContact(contactId, ['ddn-free']);
+            await addTagToContact(contactId, 'bounced-ddn-free');
+            console.log(`🗑️  Free bounce: removed ddn-free, added bounced-ddn-free — ${email}`);
+            freed++;
+          }
+        } else if (tier === 'premium') {
+          await db.query(`UPDATE subscribers SET status = 'frozen', frozen_at = NOW() WHERE email = $1`, [email]);
+          console.log(`❄️  Premium bounce: frozen in DB — ${email}`);
+          premiumFrozen++;
+        }
+      } catch (err) {
+        console.error(`Failed to process bounce for ${email}: ${err.message}`);
+        failed++;
+      }
+    }
+
+    console.log(`✅ Bounce cleanup done — free removed: ${freed}, premium frozen: ${premiumFrozen}, failed: ${failed}`);
+  } catch (err) {
+    console.error('❌ Bounce cleanup failed:', err.message);
+  }
+}
+
 // ── Cron wiring (all times Eastern) ──────────────────────────────────────────
 function startCronJob() {
   // 11:00am UTC (7:00am EDT) — fetch Dream 100, run Grok, save top 10 to queue
@@ -189,6 +239,10 @@ function startCronJob() {
   // 12:00pm UTC (8:00am EDT) — send both newsletters
   cron.schedule('0 12 * * *', runDailyNewsletter, { timezone: 'UTC' });
   console.log('📅 Cron: newsletter send at 8:00am EDT (12:00pm UTC)');
+
+  // 12:05pm UTC (8:05am EDT) — process hard bounces from today's send
+  cron.schedule('5 12 * * *', runBounceCleanup, { timezone: 'UTC' });
+  console.log('📅 Cron: bounce cleanup at 8:05am EDT (12:05pm UTC)');
 }
 
-module.exports = { startCronJob, runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob };
+module.exports = { startCronJob, runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob, runBounceCleanup };

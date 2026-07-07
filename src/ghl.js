@@ -55,4 +55,16 @@ async function removeTagsFromContact(contactId, tags) {
   });
 }
 
-module.exports = { getContactsByTag, lookupContactByEmail, removeTagsFromContact };
+// ── Add a tag to a GHL contact ────────────────────────────────────────────────
+async function addTagToContact(contactId, tag) {
+  const apiKey = process.env.GHL_API_KEY;
+  await axios.post(`${GHL_BASE}/contacts/${contactId}/tags`, { tags: [tag] }, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Version: '2021-04-15',
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+module.exports = { getContactsByTag, lookupContactByEmail, removeTagsFromContact, addTagToContact };
