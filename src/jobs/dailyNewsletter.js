@@ -179,8 +179,7 @@ async function runDailyNewsletter() {
 // ── Bounce cleanup: runs after 8am send ──────────────────────────────────────
 async function runBounceCleanup() {
   console.log('🧹 Running bounce cleanup...');
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // last 24 hours
 
   try {
     const { rows: bounces } = await db.query(`
@@ -189,7 +188,7 @@ async function runBounceCleanup() {
       WHERE event_type = 'bounce'
       AND bounce_type = 'Permanent'
       AND event_time >= $1
-    `, [todayStart.toISOString()]);
+    `, [since.toISOString()]);
 
     if (bounces.length === 0) {
       console.log('✅ No hard bounces today');
@@ -240,9 +239,9 @@ function startCronJob() {
   cron.schedule('0 12 * * *', runDailyNewsletter, { timezone: 'UTC' });
   console.log('📅 Cron: newsletter send at 8:00am EDT (12:00pm UTC)');
 
-  // 12:05pm UTC (8:05am EDT) — process hard bounces from today's send
-  cron.schedule('5 12 * * *', runBounceCleanup, { timezone: 'UTC' });
-  console.log('📅 Cron: bounce cleanup at 8:05am EDT (12:05pm UTC)');
+  // 3:00am UTC (11:00pm EDT) — process hard bounces from the day's send
+  cron.schedule('0 3 * * *', runBounceCleanup, { timezone: 'UTC' });
+  console.log('📅 Cron: bounce cleanup at 11:00pm EDT (3:00am UTC)');
 }
 
 module.exports = { startCronJob, runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob, runBounceCleanup };
