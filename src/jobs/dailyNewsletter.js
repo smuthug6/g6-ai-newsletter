@@ -163,6 +163,8 @@ async function runDailyNewsletter() {
       const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
       console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
 
+      // Ping DB to wake Neon before INSERT (send takes ~11min, connection may have idled)
+      await db.query('SELECT 1');
       await db.query(
         `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
          VALUES ($1, $2, $3, $4, 'free', $5)`,
