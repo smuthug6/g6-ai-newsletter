@@ -10,24 +10,45 @@ async function getContactsByTag(tag) {
   if (!apiKey) throw new Error('GHL_API_KEY not set in environment');
   if (!locationId) throw new Error('GHL_LOCATION_ID not set in environment');
 
+  const headers = { Authorization: `Bearer ${apiKey}`, Version: '2021-04-15' };
   const contacts = [];
   let page = 1;
 
   while (true) {
-    const res = await axios.get(`${GHL_BASE}/contacts/`, {
-      params: { locationId, tag, limit: 100, page },
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Version: '2021-04-15',
-      },
-    });
+    let batch = null;
+    let lastErr = null;
 
-    const batch = res.data?.contacts || [];
+    // Retry up to 3 times per page
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await axios.get(`${GHL_BASE}/contacts/`, {
+          params: { locationId, tag, limit: 100, page },
+          headers,
+          timeout: 10000,
+        });
+        batch = res.data?.contacts || [];
+        break;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`GHL page ${page} attempt ${attempt} failed: ${err.message} — retrying...`);
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+    }
+
+    if (batch === null) {
+      console.error(`GHL page ${page} failed after 3 attempts: ${lastErr?.message}`);
+      break;
+    }
+
     contacts.push(...batch);
     if (batch.length < 100) break;
+
+    // Small gap between pages to avoid GHL rate limiting
+    await new Promise(r => setTimeout(r, 50));
     page++;
   }
 
+  console.log(`GHL: fetched ${contacts.length} contacts for tag "${tag}" (${page} pages)`);
   return contacts;
 }
 
