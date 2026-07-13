@@ -182,52 +182,62 @@ async function runDailyNewsletter() {
   }
 }
 
-// ── Bounce cleanup: runs after 8am send ──────────────────────────────────────
+// ── Bounce + complaint cleanup: runs nightly at 11pm EDT ─────────────────────
 async function runBounceCleanup() {
-  console.log('🧹 Running bounce cleanup...');
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // last 24 hours
+  console.log('🧹 Running bounce + complaint cleanup...');
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   try {
-    const { rows: bounces } = await db.query(`
-      SELECT DISTINCT email, tier
+    // Fetch hard bounces + complaints in one query
+    const { rows: contacts } = await db.query(`
+      SELECT DISTINCT email, tier, event_type
       FROM email_events
-      WHERE event_type = 'bounce'
-      AND bounce_type = 'Permanent'
+      WHERE (
+        (event_type = 'bounce' AND bounce_type = 'Permanent')
+        OR event_type = 'complaint'
+      )
       AND event_time >= $1
     `, [since.toISOString()]);
 
-    if (bounces.length === 0) {
-      console.log('✅ No hard bounces today');
+    if (contacts.length === 0) {
+      console.log('✅ No hard bounces or complaints today');
       return;
     }
 
-    console.log(`🔍 ${bounces.length} hard bounce(s) to process`);
+    const bounces = contacts.filter(c => c.event_type === 'bounce');
+    const complaints = contacts.filter(c => c.event_type === 'complaint');
+    console.log(`🔍 ${bounces.length} hard bounce(s), ${complaints.length} complaint(s) to process`);
+
     let freed = 0, premiumFrozen = 0, failed = 0;
 
-    for (const { email, tier } of bounces) {
+    for (const { email, tier, event_type } of contacts) {
+      const isComplaint = event_type === 'complaint';
+      const freeTag = isComplaint ? 'complained-ddn-free' : 'bounced-ddn-free';
+      const logLabel = isComplaint ? '🚫 Complaint' : '🗑️  Hard bounce';
+
       try {
         if (tier === 'free') {
           const contactId = await lookupContactByEmail(email);
           if (contactId) {
             await removeTagsFromContact(contactId, ['ddn-free']);
-            await addTagToContact(contactId, 'bounced-ddn-free');
-            console.log(`🗑️  Free bounce: removed ddn-free, added bounced-ddn-free — ${email}`);
+            await addTagToContact(contactId, freeTag);
+            console.log(`${logLabel}: removed ddn-free, added ${freeTag} — ${email}`);
             freed++;
           }
         } else if (tier === 'premium') {
           await db.query(`UPDATE subscribers SET status = 'frozen', frozen_at = NOW() WHERE email = $1`, [email]);
-          console.log(`❄️  Premium bounce: frozen in DB — ${email}`);
+          console.log(`${logLabel}: premium frozen in DB — ${email}`);
           premiumFrozen++;
         }
       } catch (err) {
-        console.error(`Failed to process bounce for ${email}: ${err.message}`);
+        console.error(`Failed to process ${event_type} for ${email}: ${err.message}`);
         failed++;
       }
     }
 
-    console.log(`✅ Bounce cleanup done — free removed: ${freed}, premium frozen: ${premiumFrozen}, failed: ${failed}`);
+    console.log(`✅ Cleanup done — free removed: ${freed}, premium frozen: ${premiumFrozen}, failed: ${failed}`);
   } catch (err) {
-    console.error('❌ Bounce cleanup failed:', err.message);
+    console.error('❌ Cleanup failed:', err.message);
   }
 }
 
