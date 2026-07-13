@@ -763,7 +763,7 @@
           <thead>
             <tr>
               <th>Date</th><th>Tier</th><th>Subject</th>
-              <th>Sent</th><th>Opens</th><th>Clicks</th><th>Bounces</th>
+              <th>Sent</th><th>Opens</th><th>Clicks</th><th>Bounces</th><th>Complaints</th><th>Unsubscribes</th>
             </tr>
           </thead>
           <tbody>
@@ -782,6 +782,8 @@
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','open','${sid}')">${n.opens} <span style="color:var(--text-muted)">(${openPct}%)</span></button></td>
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click','${sid}')">${n.clicks} <span style="color:var(--text-muted)">(${clickPct}%)</span></button></td>
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','bounce','${sid}')">${n.bounces}</button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','complaint','${sid}')">${n.complaints || 0}</button></td>
+                <td>${n.unsubscribes || 0}</td>
               </tr>`;
             }).join('')}
           </tbody>

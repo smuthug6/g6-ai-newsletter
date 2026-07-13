@@ -21,11 +21,12 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    // 1. Freeze in Neon DB if premium subscriber
-    await db.query(
+    // 1. Freeze in Neon DB if premium subscriber + detect tier
+    const { rowCount } = await db.query(
       `UPDATE subscribers SET status = 'frozen', frozen_at = NOW() WHERE email = $1`,
       [email]
     );
+    const tier = rowCount > 0 ? 'premium' : 'free';
 
     // 2. Remove both tags from GHL
     try {
@@ -37,6 +38,12 @@ router.get('/', async (req, res) => {
     } catch (ghlErr) {
       console.warn(`GHL tag removal failed for ${email}: ${ghlErr.message}`);
     }
+
+    // 3. Log unsubscribe event for analytics
+    await db.query(
+      `INSERT INTO email_events (email, event_type, tier, event_time) VALUES ($1, 'unsubscribe', $2, NOW())`,
+      [email, tier]
+    ).catch(() => {});
 
     res.send(page('You have been unsubscribed.', true));
   } catch (err) {
