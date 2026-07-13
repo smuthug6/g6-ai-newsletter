@@ -124,7 +124,11 @@ async function runDailyNewsletter() {
   console.log('📰 Starting daily newsletter job...');
 
   try {
-    // ── PREMIUM: latest Inner Circle article ──────────────────────────────────
+    // ── PREMIUM: Mon-Fri only (authors don't publish on weekends) ────────────
+    const dayOfWeek = new Date().getUTCDay(); // 0=Sun, 6=Sat
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      console.log('⏭️  Premium newsletter skipped — weekend (Mon-Fri only)');
+    } else
     try {
       const article = await fetchLatestInnerCircleArticle();
       console.log(`📄 Inner Circle: "${article.title}" by ${article.author}`);
