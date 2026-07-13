@@ -783,7 +783,7 @@
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click','${sid}')">${n.clicks} <span style="color:var(--text-muted)">(${clickPct}%)</span></button></td>
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','bounce','${sid}')">${n.bounces}</button></td>
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','complaint','${sid}')">${n.complaints || 0}</button></td>
-                <td>${n.unsubscribes || 0}</td>
+                <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','unsubscribe','${sid}')">${n.unsubscribes || 0}</button></td>
               </tr>`;
             }).join('')}
           </tbody>
