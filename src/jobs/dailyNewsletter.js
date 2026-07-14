@@ -167,13 +167,23 @@ async function runDailyNewsletter() {
       const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
       console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
 
-      // Ping DB to wake Neon before INSERT (send takes ~11min, connection may have idled)
-      await db.query('SELECT 1');
-      await db.query(
-        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
-         VALUES ($1, $2, $3, $4, 'free', $5)`,
-        [freeResult.subject, freeResult.html, freeSend.sent, ['dream100'], freeSendId]
-      );
+      // Retry INSERT up to 5 times — Neon connection may drop during long send
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        try {
+          await db.query('SELECT 1');
+          await db.query(
+            `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
+             VALUES ($1, $2, $3, $4, 'free', $5)`,
+            [freeResult.subject, freeResult.html, freeSend.sent, ['dream100'], freeSendId]
+          );
+          console.log('✅ Free newsletter logged to DB');
+          break;
+        } catch (err) {
+          console.warn(`⚠️  Free newsletter DB log attempt ${attempt} failed: ${err.message}`);
+          if (attempt < 5) await new Promise(r => setTimeout(r, 3000 * attempt));
+          else console.error('❌ Free newsletter failed to log after 5 attempts');
+        }
+      }
     }
 
     console.log('✅ Daily newsletter job complete.');
