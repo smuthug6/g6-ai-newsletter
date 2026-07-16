@@ -97,22 +97,51 @@ async function runPremiumNewsletter() {
 
 // ── Send free teaser only ─────────────────────────────────────────────────────
 async function runFreeNewsletter() {
-  console.log('📰 Sending free teaser only...');
+  console.log('📰 Sending free teaser (batched)...');
   try {
     const queueArticles = await getApprovedQueueArticles();
     if (queueArticles.length === 0) throw new Error('No approved articles in queue — approve articles first');
     const freeResult = await generateFreeNewsletter(queueArticles);
-    let freeContacts = [];
-    try { freeContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
-    console.log(`📧 Free recipients: ${freeContacts.length}`);
+    let allContacts = [];
+    try { allContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
+    if (allContacts.length === 0) throw new Error('No free contacts found');
+
+    const total = allContacts.length;
+    const batchSize = Math.ceil(total / 4);
+    const batches = Array.from({ length: 4 }, (_, i) =>
+      allContacts.slice(i * batchSize, (i + 1) * batchSize)
+    ).filter(b => b.length > 0);
+
     const freeSendId = randomUUID();
-    const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
-    console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
+    const startTime = Date.now();
+    const batchDelays = [0, 30, 60, 90];
+
+    console.log(`📧 Free recipients: ${total} → ${batches.length} batches of ~${batchSize}`);
+
     await db.query(
-      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, $3, $4, 'free', $5)`,
-      [freeResult.subject, freeResult.html, freeSend.sent, ['dream100'], freeSendId]
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, 0, $3, 'free', $4)`,
+      [freeResult.subject, freeResult.html, ['dream100'], freeSendId]
     );
-    return freeSend;
+
+    // Fire batches in background
+    (async () => {
+      let totalSent = 0;
+      for (let i = 0; i < batches.length; i++) {
+        const waitMs = (startTime + batchDelays[i] * 60 * 1000) - Date.now();
+        if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+        console.log(`📧 Batch ${i + 1}/${batches.length} — ${batches[i].length} contacts...`);
+        const result = await sendBulk(batches[i], freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
+        totalSent += result.sent;
+        console.log(`✅ Batch ${i + 1} done — sent: ${result.sent} | total: ${totalSent}`);
+        try {
+          await db.query('SELECT 1');
+          await db.query(`UPDATE newsletters SET sent_to = $1 WHERE send_id = $2`, [totalSent, freeSendId]);
+        } catch (err) { console.warn(`⚠️ DB update failed batch ${i + 1}: ${err.message}`); }
+      }
+      console.log(`✅ All batches complete — total sent: ${totalSent}`);
+    })().catch(err => console.error('❌ Batch error:', err.message));
+
+    return { message: `Batched send started — ${batches.length} batches of ~${batchSize} over 90 minutes` };
   } catch (err) {
     console.error('❌ Free send failed:', err.message);
     throw err;
@@ -147,7 +176,7 @@ async function runDailyNewsletter() {
       console.error('❌ Premium newsletter failed:', err.message);
     }
 
-    // ── FREE TEASER: approved content queue (Dream 100 + Grok ranked) ─────────
+    // ── FREE TEASER: 4 batches at 8:00, 8:30, 9:00, 9:30am EDT ─────────────────
     const queueArticles = await getApprovedQueueArticles();
     if (queueArticles.length === 0) {
       console.warn('⚠️  No approved articles in queue — skipping free teaser');
@@ -155,34 +184,63 @@ async function runDailyNewsletter() {
       console.log(`📄 ${queueArticles.length} approved articles for free teaser`);
       const freeResult = await generateFreeNewsletter(queueArticles);
 
-      let freeContacts = [];
+      let allContacts = [];
       try {
-        freeContacts = await getFreeRecipients();
+        allContacts = await getFreeRecipients();
       } catch (err) {
         console.warn(`⚠️  GHL contacts failed (${err.message}) — skipping free send`);
       }
-      console.log(`📧 Free recipients: ${freeContacts.length}`);
 
-      const freeSendId = randomUUID();
-      const freeSend = await sendBulk(freeContacts, freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
-      console.log(`✅ Free sent — sent: ${freeSend.sent}, failed: ${freeSend.failed}`);
+      if (allContacts.length === 0) {
+        console.warn('⚠️  No free contacts found — skipping');
+      } else {
+        // Split into 4 equal batches
+        const total = allContacts.length;
+        const batchSize = Math.ceil(total / 4);
+        const batches = Array.from({ length: 4 }, (_, i) =>
+          allContacts.slice(i * batchSize, (i + 1) * batchSize)
+        ).filter(b => b.length > 0);
 
-      // Retry INSERT up to 5 times — Neon connection may drop during long send
-      for (let attempt = 1; attempt <= 5; attempt++) {
-        try {
-          await db.query('SELECT 1');
-          await db.query(
-            `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
-             VALUES ($1, $2, $3, $4, 'free', $5)`,
-            [freeResult.subject, freeResult.html, freeSend.sent, ['dream100'], freeSendId]
-          );
-          console.log('✅ Free newsletter logged to DB');
-          break;
-        } catch (err) {
-          console.warn(`⚠️  Free newsletter DB log attempt ${attempt} failed: ${err.message}`);
-          if (attempt < 5) await new Promise(r => setTimeout(r, 3000 * attempt));
-          else console.error('❌ Free newsletter failed to log after 5 attempts');
-        }
+        const freeSendId = randomUUID();
+        const startTime = Date.now();
+        const batchDelays = [0, 30, 60, 90]; // minutes from start
+
+        console.log(`📧 Free recipients: ${total} split into ${batches.length} batches of ~${batchSize}`);
+
+        // Insert newsletter row upfront with 0 sent — updated after each batch
+        await db.query(
+          `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id)
+           VALUES ($1, $2, 0, $3, 'free', $4)`,
+          [freeResult.subject, freeResult.html, ['dream100'], freeSendId]
+        );
+
+        // Fire batches in background — doesn't block the main job
+        (async () => {
+          let totalSent = 0;
+          for (let i = 0; i < batches.length; i++) {
+            // Wait until target time for this batch
+            const targetTime = startTime + batchDelays[i] * 60 * 1000;
+            const waitMs = targetTime - Date.now();
+            if (waitMs > 0) {
+              console.log(`⏳ Batch ${i + 1}/${batches.length}: waiting ${Math.round(waitMs / 60000)} min until ${batchDelays[i]}min mark...`);
+              await new Promise(r => setTimeout(r, waitMs));
+            }
+
+            console.log(`📧 Sending batch ${i + 1}/${batches.length} — ${batches[i].length} contacts...`);
+            const result = await sendBulk(batches[i], freeResult.subject, freeResult.html, { tier: 'free', sendId: freeSendId });
+            totalSent += result.sent;
+            console.log(`✅ Batch ${i + 1} done — sent: ${result.sent}, failed: ${result.failed} | total so far: ${totalSent}`);
+
+            // Update sent_to after each batch
+            try {
+              await db.query('SELECT 1');
+              await db.query(`UPDATE newsletters SET sent_to = $1 WHERE send_id = $2`, [totalSent, freeSendId]);
+            } catch (err) {
+              console.warn(`⚠️  Failed to update sent_to after batch ${i + 1}: ${err.message}`);
+            }
+          }
+          console.log(`✅ All ${batches.length} free batches complete — total sent: ${totalSent}`);
+        })().catch(err => console.error('❌ Batched free send error:', err.message));
       }
     }
 
