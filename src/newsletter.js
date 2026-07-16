@@ -199,7 +199,7 @@ Return only the two paragraphs separated by a blank line. No labels, no HTML, no
     </div>`;
 
   const html = wrapHTML(bodyHTML, today, PREMIUM_HEADER_HTML(today));
-  const subject = `Inner Circle: ${article.title.substring(0, 65)}`;
+  const subject = article.title.substring(0, 80);
 
   return { subject, html };
 }
@@ -314,7 +314,7 @@ For each story output this exact block:
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News';
-  const subject = `While You Were Distracted: ${firstHeadline.substring(0, 60)}`;
+  const subject = firstHeadline.substring(0, 80);
 
   return { subject, html };
 }
@@ -372,7 +372,7 @@ Fill in all stories. Make every headline dramatic and urgent.`,
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News Alert';
-  const subject = `Inner Circle: ${firstHeadline.substring(0, 65)}`;
+  const subject = firstHeadline.substring(0, 80);
 
   return { subject, html };
 }
