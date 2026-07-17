@@ -132,6 +132,29 @@ ${FOOTER_HTML}
 </html>`;
 }
 
+// ── Pick emoji based on subject keywords ─────────────────────────────────────
+function getSubjectEmoji(subject) {
+  const s = subject.toLowerCase();
+  if (s.match(/gold|bullion/))                    return '🥇';
+  if (s.match(/silver|eagle/))                    return '🪙';
+  if (s.match(/dollar|usd|currency|fiat|petro/))  return '💵';
+  if (s.match(/fed|federal reserve|powell|rate/)) return '🏦';
+  if (s.match(/bitcoin|crypto|btc/))              return '₿';
+  if (s.match(/oil|energy|opec/))                 return '⛽';
+  if (s.match(/china|brics|russia|yuan/))         return '🌏';
+  if (s.match(/war|conflict|military/))           return '⚠️';
+  if (s.match(/crash|collapse|crisis|danger/))    return '🚨';
+  if (s.match(/debt|deficit|bankrupt/))           return '💸';
+  if (s.match(/inflation|price|cost/))            return '📈';
+  if (s.match(/recession|gdp|economy/))           return '📉';
+  if (s.match(/bank|banking|jpmorgan|wells/))     return '🏛️';
+  if (s.match(/bond|treasury|yield/))             return '📊';
+  if (s.match(/print|money supply|m2/))           return '🖨️';
+  if (s.match(/reset|reorder|shift/))             return '🔄';
+  if (s.match(/protect|safe|wealth|asset/))       return '🛡️';
+  return '🔥';
+}
+
 // ── Extract JSON array from Claude response (handles code block wrappers) ─────
 function extractJSONArray(text) {
   const match = text.match(/\[[\s\S]*\]/);
@@ -199,7 +222,7 @@ Return only the two paragraphs separated by a blank line. No labels, no HTML, no
     </div>`;
 
   const html = wrapHTML(bodyHTML, today, PREMIUM_HEADER_HTML(today));
-  const subject = article.title.substring(0, 80);
+  const subject = `${getSubjectEmoji(article.title)} ${article.title.substring(0, 76)}`;
 
   return { subject, html };
 }
@@ -314,7 +337,7 @@ For each story output this exact block:
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News';
-  const subject = firstHeadline.substring(0, 80);
+  const subject = `${getSubjectEmoji(firstHeadline)} ${firstHeadline.substring(0, 76)}`;
 
   return { subject, html };
 }
@@ -372,7 +395,7 @@ Fill in all stories. Make every headline dramatic and urgent.`,
 
   const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
   const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News Alert';
-  const subject = firstHeadline.substring(0, 80);
+  const subject = `${getSubjectEmoji(firstHeadline)} ${firstHeadline.substring(0, 76)}`;
 
   return { subject, html };
 }
