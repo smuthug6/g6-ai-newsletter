@@ -227,64 +227,75 @@ Return only the two paragraphs separated by a blank line. No labels, no HTML, no
   return { subject, html };
 }
 
-// ── Function 2: Free teaser — 3 stories + images + DDN articles + 2 CTAs ──────
+// ── Dynamic header phrases (rotates daily by day of week) ────────────────────
+const BREAKING_HEADERS = [
+  { icon: '⚡', text: 'Breaking Market Alert' },
+  { icon: '🔥', text: "Today's Top Stories" },
+  { icon: '🚨', text: 'Market Intelligence Brief' },
+  { icon: '📡', text: 'Top Market Briefing' },
+  { icon: '⚠️', text: 'Financial Alert' },
+  { icon: '🔴', text: "Today's Must-Read" },
+  { icon: '💥', text: 'Breaking Financial News' },
+];
+
+// ── Function 2: Free newsletter — bullet list + featured story 1 ──────────────
 async function generateFreeNewsletter(articles) {
   const today = TODAY();
+  const header = BREAKING_HEADERS[new Date().getDay() % BREAKING_HEADERS.length];
+  const topStory = articles[0];
+  const topStoryContext = `Title: ${topStory.title}\nSummary: ${topStory.excerpt || topStory.summary || '(no summary)'}`;
 
-  const articleContext = articles.map((a, i) =>
-    `Article ${i + 1}:\nTitle: ${a.title}\nSummary: ${a.excerpt || a.summary || '(no summary)'}`
-  ).join('\n\n');
-
-  // Run Claude, 3 Imagen images, and DDN RSS fetch all concurrently
-  const [response, imageUrls, ddnArticles] = await Promise.all([
+  // Run Claude (story 1 paragraph), Imagen (1 image), DDN RSS — all concurrently
+  const [response, storyImageUrl, ddnArticles] = await Promise.all([
     client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
+      max_tokens: 400,
       system: SYSTEM_PROMPT,
       messages: [{
         role: 'user',
-        content: `Write the De-Dollarize News FREE teaser newsletter for ${today}.
+        content: `Write a short curiosity-building paragraph (3-4 sentences) for the De-Dollarize News free newsletter about this story:
 
-You have these ${articles.length} stories:
+${topStoryContext}
 
-${articleContext}
-
-For EACH story write a teaser — headline + exactly 2 punchy sentences, then cut off with "...". NO source links. Return ONLY the story blocks, nothing else.
-
-For each story output this exact block:
-
-    <div style="padding:24px 40px 0;">
-      <div style="border-left:3px solid #cc0000;padding-left:16px;margin-bottom:32px;">
-        <h2 style="color:#1a1a1a;font-size:17px;font-weight:700;margin:0 0 8px;line-height:1.4;">[HEADLINE]</h2>
-        <p style="color:#555555;font-size:14px;line-height:1.7;margin:0;">[SENTENCE 1]. [SENTENCE 2]...</p>
-      </div>
-    </div>`,
+Open with the key insight. Build urgency. Make the reader feel they absolutely need to know what's behind this. Cut off with "..." leaving them wanting more. Return only the paragraph, no HTML, no em dashes.`,
       }],
     }),
-    // Generate 3 images from top 3 headlines
-    (async () => {
-      const urls = [];
-      for (let i = 0; i < 3; i++) {
-        const headline = articles[i]?.title || `Story ${i + 1}`;
-        const b64 = await generateStoryImage(headline);
-        if (b64) {
-          try { urls.push(await uploadToS3(b64)); } catch (e) { console.error('S3 upload failed:', e.message); urls.push(null); }
-        } else {
-          urls.push(null);
-        }
-        if (i < 2) await new Promise(r => setTimeout(r, 3000));
-      }
-      return urls;
-    })(),
-    // Fetch 2 recent articles from dedollarizenews.com via RSS
+    // Generate 1 image for story 1 only
+    generateStoryImage(topStory.title).then(async b64 => {
+      if (!b64) return null;
+      try { return await uploadToS3(b64); } catch (e) { console.error('S3 upload failed:', e.message); return null; }
+    }),
     fetchRecentDDNArticles(2).catch(e => { console.error('DDN RSS failed:', e.message); return []; }),
   ]);
 
-  const rawStoriesHTML = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-  const storiesHTML = injectImageUrls(rawStoriesHTML, imageUrls);
+  const curiosityPara = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+
+  // ── Numbered bullet list (all 3 headlines) ────────────────────────────────
+  const bulletListHTML = `
+    <div style="padding:24px 40px 20px;">
+      <p style="color:#cc0000;font-size:20px;font-weight:900;margin:0 0 4px;letter-spacing:-0.3px;">${header.icon} ${header.text}</p>
+      <p style="color:#888888;font-size:13px;margin:0 0 20px;">Today's most important stories for wealth protection</p>
+      <div style="border-left:3px solid #cc0000;padding-left:16px;">
+        ${articles.map((a, i) => `
+        <p style="margin:0 0 ${i < articles.length - 1 ? '12px' : '0'};font-size:14px;color:#1a1a1a;line-height:1.5;">
+          <span style="color:#cc0000;font-weight:700;">${['①','②','③'][i]}</span>&nbsp;
+          <strong>${a.title}</strong>
+        </p>`).join('')}
+      </div>
+    </div>`;
+
+  // ── Story 1: full image + curiosity paragraph ─────────────────────────────
+  const featuredStoryHTML = `
+    <div style="padding:0 40px 0;border-top:2px solid #f0f0f0;margin-top:8px;">
+      <div style="padding-top:24px;">
+        ${storyImageUrl ? `<img src="${storyImageUrl}" style="width:100%;height:240px;object-fit:cover;display:block;border-radius:6px;margin-bottom:16px;" alt="">` : ''}
+        <h2 style="color:#1a1a1a;font-size:19px;font-weight:800;margin:0 0 12px;line-height:1.35;">${topStory.title}</h2>
+        <p style="color:#555555;font-size:15px;line-height:1.75;margin:0 0 24px;">${curiosityPara}</p>
+      </div>
+    </div>`;
 
   const cta1HTML = `
-    <div style="padding:32px 40px;text-align:center;background:#f9f9f9;margin-top:8px;border-top:3px solid #cc0000;">
+    <div style="padding:32px 40px;text-align:center;background:#f9f9f9;border-top:3px solid #cc0000;">
       <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">MEMBERS ONLY</p>
       <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
         GET OUR EXCLUSIVE DAILY ANALYSIS →<br>
@@ -322,7 +333,7 @@ For each story output this exact block:
     </div>` : '';
 
   const cta2HTML = `
-    <div style="padding:36px 40px;text-align:center;background:#0d0d0d;margin-top:0;">
+    <div style="padding:36px 40px;text-align:center;background:#0d0d0d;">
       <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 10px;">THE DOLLAR ISN'T WAITING</p>
       <p style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 8px;line-height:1.3;">Still reading headlines?</p>
       <p style="color:#aaaaaa;font-size:15px;margin:0 0 24px;line-height:1.5;">Start reading what's <em>behind</em> them.</p>
@@ -332,12 +343,9 @@ For each story output this exact block:
       <p style="color:#555555;font-size:11px;margin:20px 0 0;">Join thousands protecting their wealth from the coming reset.</p>
     </div>`;
 
-  const bodyContent = storiesHTML + cta1HTML + whatYouGetHTML + ddnHTML + cta2HTML;
+  const bodyContent = bulletListHTML + featuredStoryHTML + cta1HTML + whatYouGetHTML + ddnHTML + cta2HTML;
   const html = wrapHTML(bodyContent, today, FREE_HEADER_HTML(today));
-
-  const subjectMatch = html.match(/<h2[^>]*>([^<]+)<\/h2>/);
-  const firstHeadline = subjectMatch ? subjectMatch[1] : 'De-Dollarize News';
-  const subject = `${getSubjectEmoji(firstHeadline)} ${firstHeadline.substring(0, 76)}`;
+  const subject = `${getSubjectEmoji(topStory.title)} ${topStory.title.substring(0, 76)}`;
 
   return { subject, html };
 }
