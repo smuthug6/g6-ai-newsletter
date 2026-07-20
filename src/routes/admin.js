@@ -293,6 +293,24 @@ router.get('/analytics', adminAuth, async (req, res) => {
   }
 });
 
+// ── View full HTML of a sent newsletter ──────────────────────────────────────
+router.get('/newsletter/:id/html', adminAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT html_content, subject, tier, sent_at FROM newsletters WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Newsletter not found' });
+    const { html_content, subject, tier, sent_at } = rows[0];
+    if (!html_content || html_content === '(recovered)') {
+      return res.status(404).json({ error: 'Email HTML not available for this send' });
+    }
+    res.json({ html: html_content, subject, tier, sent_at });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Analytics drill-down: who opened/clicked ─────────────────────────────────
 router.get('/analytics/events', adminAuth, async (req, res) => {
   const { send_id, tier, date, event_type } = req.query;

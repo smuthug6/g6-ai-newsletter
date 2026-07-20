@@ -777,7 +777,7 @@
               return `<tr>
                 <td style="white-space:nowrap">${date}</td>
                 <td><span class="badge ${n.tier === 'premium' ? 'badge-active' : 'badge-frozen'}">${n.tier}</span></td>
-                <td style="font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.subject}</td>
+                <td style="font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><button class="btn btn-ghost btn-sm" style="text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;" onclick="viewSentEmail('${n.id}','${n.subject.replace(/'/g,"\\'")}','${n.tier}')" title="Click to view sent email">${n.subject}</button></td>
                 <td>${n.sent_to}</td>
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','open','${sid}')">${n.opens} <span style="color:var(--text-muted)">(${openPct}%)</span></button></td>
                 <td><button class="btn btn-ghost btn-sm" onclick="drillDown('${dateKey}','${n.tier}','click','${sid}')">${n.clicks} <span style="color:var(--text-muted)">(${clickPct}%)</span></button></td>
@@ -790,6 +790,36 @@
         </table>`;
     } catch (e) {
       el.innerHTML = `<p style="color:var(--error-text);font-size:14px">Failed to load analytics: ${e.message}</p>`;
+    }
+  }
+
+  async function viewSentEmail(id, subject, tier) {
+    const card     = document.getElementById('preview-card');
+    const loading  = document.getElementById('preview-loading');
+    const frame    = document.getElementById('preview-frame');
+    const titleEl  = document.getElementById('preview-card-title');
+    const statusEl = document.getElementById('preview-status-msg');
+
+    titleEl.textContent = `Sent Email — ${tier} — ${subject.substring(0, 50)}`;
+    card.style.display = 'block';
+    loading.style.display = 'block';
+    frame.style.display = 'none';
+    statusEl.textContent = 'Loading sent email...';
+    card.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+      const data = await api(`/newsletter/${id}/html`);
+      loading.style.display = 'none';
+      frame.style.display = 'block';
+      if (data.error) {
+        frame.srcdoc = `<p style="font-family:sans-serif;padding:40px;color:#cc0000;">${data.error}</p>`;
+      } else {
+        frame.srcdoc = data.html;
+      }
+    } catch (e) {
+      loading.style.display = 'none';
+      frame.style.display = 'block';
+      frame.srcdoc = `<p style="font-family:sans-serif;padding:40px;color:#cc0000;">Failed to load: ${e.message}</p>`;
     }
   }
 
