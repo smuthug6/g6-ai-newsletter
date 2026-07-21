@@ -320,8 +320,8 @@ function startCronJob() {
   console.log('📅 Cron: auto-approve at 7:55am EDT (11:55am UTC)');
 
   // 12:00pm UTC (8:00am EDT) — send both newsletters
-  cron.schedule('0 12 * * *', runDailyNewsletter, { timezone: 'UTC' });
-  console.log('📅 Cron: newsletter send at 8:00am EDT (12:00pm UTC)');
+  cron.schedule('0 15 * * *', runDailyNewsletter, { timezone: 'UTC' });
+  console.log('📅 Cron: newsletter send at 11:00am EDT (3:00pm UTC)');
 
   // 3:00am UTC (11:00pm EDT) — process hard bounces from the day's send
   cron.schedule('0 3 * * *', runBounceCleanup, { timezone: 'UTC' });
