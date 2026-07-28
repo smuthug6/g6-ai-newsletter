@@ -322,41 +322,21 @@ async function runEveningNewsletter() {
     try { allContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
     if (allContacts.length === 0) throw new Error('No free contacts found');
 
-    const total = allContacts.length;
-    const batchSize = Math.ceil(total / 4);
-    const batches = Array.from({ length: 4 }, (_, i) =>
-      allContacts.slice(i * batchSize, (i + 1) * batchSize)
-    ).filter(b => b.length > 0);
-
     const sendId = randomUUID();
-    const startTime = Date.now();
-    const batchDelays = [0, 30, 60, 90];
+    console.log(`📧 Evening recipients: ${allContacts.length}`);
 
-    console.log(`📧 Evening recipients: ${total} → ${batches.length} batches of ~${batchSize}`);
+    const send = await sendBulk(allContacts, result.subject, result.html, { tier: 'free', sendId });
+    console.log(`✅ Evening sent — sent: ${send.sent}, failed: ${send.failed}`);
 
-    await db.query(
-      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, 0, $3, 'free', $4)`,
-      [result.subject, result.html, ['dream100-evening'], sendId]
-    );
+    try {
+      await db.query('SELECT 1');
+      await db.query(
+        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, $3, $4, 'free', $5)`,
+        [result.subject, result.html, send.sent, ['dream100-evening'], sendId]
+      );
+    } catch (err) { console.warn(`⚠️ DB log failed: ${err.message}`); }
 
-    (async () => {
-      let totalSent = 0;
-      for (let i = 0; i < batches.length; i++) {
-        const waitMs = (startTime + batchDelays[i] * 60 * 1000) - Date.now();
-        if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
-        console.log(`📧 Evening batch ${i + 1}/${batches.length} — ${batches[i].length} contacts...`);
-        const send = await sendBulk(batches[i], result.subject, result.html, { tier: 'free', sendId });
-        totalSent += send.sent;
-        console.log(`✅ Evening batch ${i + 1} done — sent: ${send.sent} | total: ${totalSent}`);
-        try {
-          await db.query('SELECT 1');
-          await db.query(`UPDATE newsletters SET sent_to = $1 WHERE send_id = $2`, [totalSent, sendId]);
-        } catch (err) { console.warn(`⚠️ DB update failed: ${err.message}`); }
-      }
-      console.log(`✅ Evening send complete — total: ${totalSent}`);
-    })().catch(err => console.error('❌ Evening batch error:', err.message));
-
-    return { message: `Evening send started — ${batches.length} batches over 90 minutes` };
+    return { message: `Evening send complete — ${send.sent} sent` };
   } catch (err) {
     console.error('❌ Evening newsletter failed:', err.message);
     throw err;
