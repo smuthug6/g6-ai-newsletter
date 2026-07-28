@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { randomUUID } = require('crypto');
 const db = require('../supabase');
-const { generatePremiumNewsletter, generateFreeNewsletter } = require('../newsletter');
+const { generatePremiumNewsletter, generateFreeNewsletter, generateEveningNewsletter } = require('../newsletter');
 const { fetchLatestInnerCircleArticle } = require('../wordpressFetcher');
 const { runContentAggregator, autoApproveTop5 } = require('./contentAggregator');
 const { getContactsByTag, lookupContactByEmail, removeTagsFromContact, addTagToContact } = require('../ghl');
@@ -27,14 +27,14 @@ async function getFreeRecipients() {
 }
 
 // ── Get today's approved articles from content queue (for free teaser) ───────
-async function getApprovedQueueArticles() {
+async function getApprovedQueueArticles(limit = 3, offset = 0) {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
   const { rows } = await db.query(
     `SELECT * FROM daily_articles
      WHERE approved = true AND created_at >= $1
-     ORDER BY score DESC LIMIT 3`,
-    [todayStart.toISOString()]
+     ORDER BY score DESC LIMIT $2 OFFSET $3`,
+    [todayStart.toISOString(), limit, offset]
   );
   return rows;
 }
@@ -309,6 +309,60 @@ async function runBounceCleanup() {
   }
 }
 
+// ── Evening newsletter: articles 4,5,6 — sends at 4pm EDT ────────────────────
+async function runEveningNewsletter() {
+  console.log('🌆 Sending evening newsletter...');
+  try {
+    const articles = await getApprovedQueueArticles(3, 3); // skip top 3, take 4,5,6
+    if (articles.length === 0) throw new Error('No articles 4-6 in queue for evening send');
+
+    const result = await generateEveningNewsletter(articles);
+
+    let allContacts = [];
+    try { allContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
+    if (allContacts.length === 0) throw new Error('No free contacts found');
+
+    const total = allContacts.length;
+    const batchSize = Math.ceil(total / 4);
+    const batches = Array.from({ length: 4 }, (_, i) =>
+      allContacts.slice(i * batchSize, (i + 1) * batchSize)
+    ).filter(b => b.length > 0);
+
+    const sendId = randomUUID();
+    const startTime = Date.now();
+    const batchDelays = [0, 30, 60, 90];
+
+    console.log(`📧 Evening recipients: ${total} → ${batches.length} batches of ~${batchSize}`);
+
+    await db.query(
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, 0, $3, 'free', $4)`,
+      [result.subject, result.html, ['dream100-evening'], sendId]
+    );
+
+    (async () => {
+      let totalSent = 0;
+      for (let i = 0; i < batches.length; i++) {
+        const waitMs = (startTime + batchDelays[i] * 60 * 1000) - Date.now();
+        if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+        console.log(`📧 Evening batch ${i + 1}/${batches.length} — ${batches[i].length} contacts...`);
+        const send = await sendBulk(batches[i], result.subject, result.html, { tier: 'free', sendId });
+        totalSent += send.sent;
+        console.log(`✅ Evening batch ${i + 1} done — sent: ${send.sent} | total: ${totalSent}`);
+        try {
+          await db.query('SELECT 1');
+          await db.query(`UPDATE newsletters SET sent_to = $1 WHERE send_id = $2`, [totalSent, sendId]);
+        } catch (err) { console.warn(`⚠️ DB update failed: ${err.message}`); }
+      }
+      console.log(`✅ Evening send complete — total: ${totalSent}`);
+    })().catch(err => console.error('❌ Evening batch error:', err.message));
+
+    return { message: `Evening send started — ${batches.length} batches over 90 minutes` };
+  } catch (err) {
+    console.error('❌ Evening newsletter failed:', err.message);
+    throw err;
+  }
+}
+
 // ── Cron wiring (all times Eastern) ──────────────────────────────────────────
 function startCronJob() {
   // 11:00am UTC (7:00am EDT) — fetch Dream 100, run Grok, save top 10 to queue
@@ -323,9 +377,13 @@ function startCronJob() {
   cron.schedule('0 23 * * *', runDailyNewsletter, { timezone: 'UTC' });
   console.log('📅 Cron: newsletter send PAUSED at 11:00pm UTC (temporary)');
 
+  // 8:00pm UTC (4:00pm EDT) — evening newsletter (articles 4,5,6)
+  cron.schedule('0 20 * * *', runEveningNewsletter, { timezone: 'UTC' });
+  console.log('📅 Cron: evening newsletter at 4:00pm EDT (8:00pm UTC)');
+
   // 3:00am UTC (11:00pm EDT) — process hard bounces from the day's send
   cron.schedule('0 3 * * *', runBounceCleanup, { timezone: 'UTC' });
   console.log('📅 Cron: bounce cleanup at 11:00pm EDT (3:00am UTC)');
 }
 
-module.exports = { startCronJob, runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob, runBounceCleanup };
+module.exports = { startCronJob, runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runEveningNewsletter, runTestSend, runAggregatorJob, runAutoApproveJob, runBounceCleanup };

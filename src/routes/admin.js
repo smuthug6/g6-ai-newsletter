@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../supabase');
-const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter } = require('../newsletter');
-const { runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runTestSend, runAggregatorJob, runBounceCleanup } = require('../jobs/dailyNewsletter');
+const { generatePremiumNewsletter, generateFreeNewsletter, generateNewsletter, generateEveningNewsletter } = require('../newsletter');
+const { runDailyNewsletter, runPremiumNewsletter, runFreeNewsletter, runEveningNewsletter, runTestSend, runAggregatorJob, runBounceCleanup } = require('../jobs/dailyNewsletter');
 const { testSesConnection } = require('../email');
 const { fetchLatestInnerCircleArticle } = require('../wordpressFetcher');
 
@@ -160,6 +160,23 @@ router.post('/preview/free', adminAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Preview Evening ───────────────────────────────────────────────────────────
+router.post('/preview/evening', adminAuth, async (req, res) => {
+  try {
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const { rows } = await db.query(
+      `SELECT * FROM daily_articles WHERE approved = true AND created_at >= $1 ORDER BY score DESC LIMIT 6`,
+      [todayStart.toISOString()]
+    );
+    const articles = rows.slice(3); // articles 4,5,6
+    if (articles.length === 0) return res.status(404).json({ error: 'Not enough articles for evening send. Need at least 4 approved articles.' });
+    const result = await generateEveningNewsletter(articles);
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+});
+
 // ── Today's dedollarizenews.com articles (read-only, for dashboard display) ───
 router.get('/articles/premium-preview', adminAuth, async (req, res) => {
   try {
@@ -251,6 +268,12 @@ router.post('/send-premium', adminAuth, async (req, res) => {
 router.post('/send-free', adminAuth, async (req, res) => {
   res.json({ message: 'Free teaser send started in background' });
   runFreeNewsletter().catch(err => console.error('❌ send-free crashed:', err.message));
+});
+
+// ── Send evening only ─────────────────────────────────────────────────────────
+router.post('/send-evening', adminAuth, async (req, res) => {
+  res.json({ message: 'Evening newsletter send started in background' });
+  runEveningNewsletter().catch(err => console.error('❌ send-evening crashed:', err.message));
 });
 
 // ── Test send — single email to confirm SES is working ───────────────────────

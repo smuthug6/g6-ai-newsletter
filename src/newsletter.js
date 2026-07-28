@@ -408,4 +408,111 @@ Fill in all stories. Make every headline dramatic and urgent.`,
   return { subject, html };
 }
 
-module.exports = { generateNewsletter, generatePremiumNewsletter, generateFreeNewsletter };
+// ── Evening newsletter header ─────────────────────────────────────────────────
+const EVENING_HEADER_HTML = (today) => `
+    <div style="margin:0;padding:0;">
+      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/evening-newsletter-header.png" style="width:100%;display:block;" alt="While You Were Distracted — De-Dollarize News">
+    </div>`;
+
+// ── Function 4: Evening newsletter — articles 4,5,6 — white bg, blog style ───
+async function generateEveningNewsletter(articles) {
+  const today = TODAY();
+
+  const articleContext = articles.map((a, i) =>
+    `Article ${i + 1}:\nTitle: ${a.title}\nSummary: ${a.excerpt || a.summary || '(no summary)'}`
+  ).join('\n\n');
+
+  // Claude writes curiosity paragraphs + Imagen generates 3 images concurrently
+  const [response, imageUrls] = await Promise.all([
+    client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: `Write a short curiosity-building paragraph (3-4 sentences) for EACH of these ${articles.length} stories for the De-Dollarize News evening newsletter.
+
+${articleContext}
+
+For each story: open with the key insight, build urgency, make readers feel they need to know more, cut off with "...". No em dashes. No HTML.
+
+Return ONLY a JSON array of strings, one paragraph per story:
+["Paragraph 1...", "Paragraph 2...", "Paragraph 3..."]`,
+      }],
+    }),
+    (async () => {
+      const urls = [];
+      for (let i = 0; i < articles.length; i++) {
+        const headline = articles[i]?.title || `Story ${i + 1}`;
+        const b64 = await generateStoryImage(headline);
+        if (b64) {
+          try { urls.push(await uploadToS3(b64)); } catch (e) { console.error('S3 upload failed:', e.message); urls.push(null); }
+        } else { urls.push(null); }
+        if (i < articles.length - 1) await new Promise(r => setTimeout(r, 3000));
+      }
+      return urls;
+    })(),
+  ]);
+
+  const rawText = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  const paragraphs = extractJSONArray(rawText) || articles.map(a => a.excerpt || a.summary || '');
+
+  // Bullet intro
+  const bulletHTML = `
+    <div style="padding:28px 40px 8px;text-align:center;">
+      <p style="color:#1a1a1a;font-size:20px;font-weight:800;margin:0 0 16px;">De-Dollarize News</p>
+      <p style="color:#333333;font-size:15px;line-height:1.75;margin:0;text-align:left;">The headlines may seem disconnected, but together they reveal powerful trends that could affect your finances and the global economy. In today's edition:</p>
+    </div>
+    <div style="padding:8px 40px 24px;">
+      <ul style="margin:0;padding-left:20px;color:#333333;font-size:15px;line-height:2.1;">
+        ${articles.map(a => `<li>${a.title}</li>`).join('')}
+      </ul>
+    </div>
+    <div style="height:1px;background:#e8e8e8;margin:0 40px;"></div>`;
+
+  // 3 article blocks
+  const storiesHTML = articles.map((a, i) => {
+    const para = typeof paragraphs[i] === 'string' ? paragraphs[i] : (a.excerpt || a.summary || '');
+    const imgHTML = imageUrls[i]
+      ? `<img src="${imageUrls[i]}" style="width:100%;height:220px;object-fit:cover;display:block;border-radius:4px;margin-bottom:18px;" alt="">`
+      : '';
+    const divider = i < articles.length - 1 ? `<div style="height:1px;background:#e8e8e8;margin:32px 40px 0;"></div>` : '';
+    return `
+    <div style="padding:32px 40px 0;">
+      ${imgHTML}
+      <h2 style="color:#1a1a1a;font-size:20px;font-weight:800;margin:0 0 12px;line-height:1.3;">${a.title}</h2>
+      <p style="color:#444444;font-size:15px;line-height:1.75;margin:0 0 14px;">${para}</p>
+      <a href="https://dedollarizenews.com" style="color:#cc0000;font-size:13px;font-weight:600;text-decoration:none;">dedollarizenews.com</a>
+    </div>${divider}`;
+  }).join('\n');
+
+  const ctaHTML = `
+    <div style="padding:36px 40px;text-align:center;background:#f9f9f9;margin-top:32px;border-top:3px solid #cc0000;">
+      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">MEMBERS ONLY</p>
+      <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
+        GET OUR EXCLUSIVE DAILY ANALYSIS →<br>
+        <span style="font-weight:400;font-size:13px;opacity:.9;">Subscribe to Inner Circle for dedollarizenews.com<br>premium content delivered daily</span>
+      </a>
+      <p style="color:#999999;font-size:12px;margin:16px 0 0;">Full analysis · Real sources · Wealth protection strategies</p>
+    </div>`;
+
+  const bodyContent = bulletHTML + storiesHTML + ctaHTML;
+
+  // Evening uses its own wrapHTML with evening header
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;">
+${EVENING_HEADER_HTML(today)}
+${bodyContent}
+${FOOTER_HTML}
+  </div>
+</body>
+</html>`;
+
+  const subject = `${getSubjectEmoji(articles[0].title)} ${articles[0].title.substring(0, 76)}`;
+  return { subject, html };
+}
+
+module.exports = { generateNewsletter, generatePremiumNewsletter, generateFreeNewsletter, generateEveningNewsletter };

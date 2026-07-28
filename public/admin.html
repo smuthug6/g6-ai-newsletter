@@ -327,6 +327,7 @@
           <button class="btn btn-ghost" onclick="runBounceCleanup()" id="btn-bounce">🧹 Process Bounces</button>
           <button class="btn btn-ghost" onclick="previewNewsletter('premium')">👁 Preview Premium (dedollarizenews.com)</button>
           <button class="btn btn-ghost" onclick="previewNewsletter('free')">👁 Preview Free Teaser (Dream 100 + Grok)</button>
+          <button class="btn btn-ghost" onclick="previewNewsletter('evening')">🌆 Preview Evening (Articles 4-6)</button>
           <button class="btn btn-approve" onclick="approveTop5()">✅ APPROVE TOP 5 &amp; SCHEDULE FOR 8AM</button>
         </div>
         <p class="notice">Manual override: re-arrange the queue, mark stories ✓ Keep, or remove with ✗. The first 5 ✓ entries become tomorrow's newsletter.</p>
@@ -346,6 +347,7 @@
       <button class="btn btn-success" onclick="sendNow()">📤 Send Both Now</button>
       <button class="btn btn-primary" onclick="sendPremium()">⭐ Send Premium Only</button>
       <button class="btn btn-secondary" onclick="sendFree()">📡 Send Free Teaser Only</button>
+      <button class="btn btn-ghost" onclick="sendEvening()">🌆 Send Evening Only</button>
       <button class="btn btn-ghost" onclick="loadAll()">🔄 Refresh</button>
     </div>
 
@@ -685,7 +687,7 @@
     const barEl    = document.getElementById('preview-progress');
     const titleEl  = document.getElementById('preview-card-title');
 
-    titleEl.textContent = type === 'free' ? 'Free Teaser Preview' : 'Premium Preview';
+    titleEl.textContent = type === 'free' ? 'Free Teaser Preview' : type === 'evening' ? 'Evening Newsletter Preview' : 'Premium Preview';
     card.style.display = 'block';
     loading.style.display = 'block';
     frame.style.display = 'none';
@@ -708,7 +710,7 @@
     }, 1000);
 
     try {
-      const endpoint = type === 'free' ? '/preview/free' : '/preview/premium';
+      const endpoint = type === 'free' ? '/preview/free' : type === 'evening' ? '/preview/evening' : '/preview/premium';
       const data = await api(endpoint, 'POST', null, 120000);
       clearInterval(_previewTimer);
       barEl.style.width = '100%';
@@ -745,6 +747,12 @@
     if (!confirm('Send FREE TEASER only to GHL contacts?')) return;
     await api('/send-free', 'POST');
     showAlert('Free teaser sending in background — check Recent Newsletters in ~2 mins.');
+  }
+
+  async function sendEvening() {
+    if (!confirm('Send EVENING newsletter (articles 4-6) to GHL contacts?')) return;
+    await api('/send-evening', 'POST');
+    showAlert('Evening newsletter sending in background — check Recent Newsletters in ~2 mins.');
   }
 
   // ── Analytics ────────────────────────────────────────────────────────────────
