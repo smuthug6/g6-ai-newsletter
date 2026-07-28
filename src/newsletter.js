@@ -37,7 +37,7 @@ const IMAGE_THEMES = [
 async function generateStoryImage(headline) {
   if (!process.env.GOOGLE_AI_KEY) return null;
   try {
-    const imagePrompt = `Clean editorial photography for financial news headline: "${headline}". Bright natural lighting, neutral white or light background, modern professional magazine style, sharp and crisp, no text, no logos, no people, no faces. If coins are shown they must be American Eagle gold or silver coins only.`;
+    const imagePrompt = `Clean editorial photography for financial news headline: "${headline}". Bright natural lighting, neutral white or light background, modern professional magazine style, sharp and crisp, no text, no logos, no people, no faces. Do not show coins unless the headline is specifically about gold or silver coins — in that case use American Eagle coins only.`;
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
       {
