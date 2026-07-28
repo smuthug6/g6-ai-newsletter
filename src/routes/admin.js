@@ -175,7 +175,6 @@ router.post('/preview/evening', adminAuth, async (req, res) => {
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-});
 
 // ── Today's dedollarizenews.com articles (read-only, for dashboard display) ───
 router.get('/articles/premium-preview', adminAuth, async (req, res) => {
