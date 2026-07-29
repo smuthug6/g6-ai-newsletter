@@ -95,7 +95,7 @@ const PREMIUM_HEADER_HTML = (today) => `
 const FREE_HEADER_HTML = (today) => `
     <!-- Header image -->
     <div style="margin:0;padding:0;">
-      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/free-newsletter-header.png" style="width:100%;display:block;" alt="De-Dollarize News">
+      <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/evening-newsletter-header.png" style="width:100%;display:block;" alt="De-Dollarize News">
     </div>
 
     <!-- Date bar -->
