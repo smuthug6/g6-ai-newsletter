@@ -468,7 +468,7 @@ Return ONLY a JSON array of strings, one paragraph per story:
   const storiesHTML = articles.map((a, i) => {
     const para = typeof paragraphs[i] === 'string' ? paragraphs[i] : (a.excerpt || '');
     const imgHTML = a.imageUrl
-      ? `<img src="${a.imageUrl}" style="width:100%;height:220px;object-fit:cover;display:block;border-radius:4px;margin-bottom:18px;" alt="">`
+      ? `<a href="${a.url}" style="display:block;margin-bottom:18px;"><img src="${a.imageUrl}" style="width:100%;height:220px;object-fit:cover;display:block;border-radius:4px;" alt=""></a>`
       : '';
     const divider = i < articles.length - 1 ? `<div style="height:1px;background:#e8e8e8;margin:32px 40px 0;"></div>` : '';
     return `
