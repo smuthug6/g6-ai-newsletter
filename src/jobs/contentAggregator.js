@@ -120,6 +120,20 @@ ${articleList}`;
   return topics;
 }
 
+// ── Banking/financial system keywords that get score boost ───────────────────
+const BANKING_KEYWORDS = [
+  'fed', 'federal reserve', 'powell', 'rate', 'interest rate', 'bank', 'banking',
+  'jpmorgan', 'wells fargo', 'citibank', 'goldman', 'morgan stanley', 'treasury',
+  'yield', 'bond', 'debt ceiling', 'fdic', 'collapse', 'bailout', 'svb',
+  'central bank', 'boj', 'ecb', 'imf', 'world bank', 'basel', 'credit',
+  'lending', 'deposit', 'fdic', 'liquidity', 'solvency', 'insolvency',
+];
+
+function hasBankingKeyword(text) {
+  const lower = (text || '').toLowerCase();
+  return BANKING_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 // ── Save top 10 Grok topics to daily_articles table ──────────────────────────
 async function saveTopicsToQueue(topics) {
   const todayStart = new Date();
@@ -130,6 +144,12 @@ async function saveTopicsToQueue(topics) {
 
   for (let i = 0; i < topics.length; i++) {
     const t = topics[i];
+    const baseScore = t.score || (100 - i * 10);
+    // Banking/financial system articles get +200 boost so they always rank first
+    const isBanking = hasBankingKeyword(t.headline || t.title || '') || hasBankingKeyword(t.summary || '');
+    const finalScore = isBanking ? baseScore + 200 : baseScore;
+    if (isBanking) console.log(`🏦 Banking boost applied to: ${(t.headline || t.title || '').slice(0, 60)}`);
+
     await db.query(
       `INSERT INTO daily_articles (title, url, source, score, summary, approved)
        VALUES ($1, $2, $3, $4, $5, false)`,
@@ -137,7 +157,7 @@ async function saveTopicsToQueue(topics) {
         t.headline || t.title || '',
         t.url || '',
         t.source || 'Dream 100',
-        t.score || (100 - i * 10),
+        finalScore,
         t.summary || '',
       ]
     );
