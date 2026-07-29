@@ -109,7 +109,21 @@ async function fetchLatestInnerCircleArticle() {
   };
 }
 
-// ── Fetch today's DDN articles for evening newsletter (up to 3, with images) ──
+// ── Banking keywords for evening article prioritisation ───────────────────────
+const EVENING_BANKING_KEYWORDS = [
+  'fed', 'federal reserve', 'powell', 'rate', 'interest rate', 'bank', 'banking',
+  'jpmorgan', 'goldman', 'morgan stanley', 'citibank', 'wells fargo',
+  'treasury', 'yield', 'bond', 'central bank', 'boj', 'ecb', 'imf',
+  'credit', 'lending', 'deposit', 'fdic', 'liquidity', 'debt ceiling',
+  'bailout', 'insolvency', 'monetary policy', 'quantitative',
+];
+
+function isBankingArticle(title, description) {
+  const text = ((title || '') + ' ' + (description || '')).toLowerCase();
+  return EVENING_BANKING_KEYWORDS.some(kw => text.includes(kw));
+}
+
+// ── Fetch today's DDN articles for evening newsletter (banking first, then 2 most recent) ──
 async function fetchEveningDDNArticles() {
   const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://dedollarizenews.com/feed/')}`;
   const res = await fetch(apiUrl);
@@ -121,17 +135,14 @@ async function fetchEveningDDNArticles() {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   let items = data.items.filter(item => item.pubDate && new Date(item.pubDate + ' UTC') >= cutoff);
 
-  // Fallback to latest 3 if nothing today
+  // Fallback to latest articles if nothing today
   if (items.length === 0) {
-    console.warn('Evening: no articles in last 24h — falling back to latest 3');
-    items = data.items.slice(0, 3);
+    console.warn('Evening: no articles in last 24h — falling back to latest');
+    items = data.items.slice(0, 10);
   }
 
-  // Take up to 3
-  items = items.slice(0, 3);
-  console.log(`Evening RSS: ${items.length} DDN articles`);
-
-  return items.map(item => {
+  // Convert to article objects
+  const mapped = items.map(item => {
     const rawUrl = item.enclosure?.link || item.thumbnail || null;
     const imageUrl = rawUrl ? rawUrl.replace(/-\d+x\d+(\.\w+)$/, '$1') : null;
     return {
@@ -140,8 +151,27 @@ async function fetchEveningDDNArticles() {
       url: item.link,
       imageUrl,
       category: item.categories?.[0] || 'De-Dollarize News',
+      isBanking: isBankingArticle(item.title, item.description),
     };
   }).filter(a => a.title && a.url);
+
+  // Separate banking and non-banking articles
+  const banking = mapped.filter(a => a.isBanking);
+  const nonBanking = mapped.filter(a => !a.isBanking);
+
+  let selected;
+  if (banking.length > 0) {
+    // Banking article first, then 2 most recent non-banking
+    selected = [banking[0], ...nonBanking.slice(0, 2)];
+    console.log(`Evening RSS: banking article "${banking[0].title.slice(0, 50)}" promoted to position 1`);
+  } else {
+    // No banking article — take 3 most recent
+    selected = mapped.slice(0, 3);
+    console.log('Evening RSS: no banking article found — using 3 most recent');
+  }
+
+  console.log(`Evening RSS: ${selected.length} DDN articles selected`);
+  return selected;
 }
 
 module.exports = { fetchArticlesForNewsletter, fetchLatestInnerCircleArticle, fetchRecentDDNArticles, fetchEveningDDNArticles };
