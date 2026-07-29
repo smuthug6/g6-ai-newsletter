@@ -155,19 +155,21 @@ async function fetchEveningDDNArticles() {
     };
   }).filter(a => a.title && a.url);
 
-  // Separate banking and non-banking articles
-  const banking = mapped.filter(a => a.isBanking);
-  const nonBanking = mapped.filter(a => !a.isBanking);
+  // Find first banking article
+  const bankingIdx = mapped.findIndex(a => a.isBanking);
 
   let selected;
-  if (banking.length > 0) {
-    // Banking article first, then 2 most recent non-banking
-    selected = [banking[0], ...nonBanking.slice(0, 2)];
-    console.log(`Evening RSS: banking article "${banking[0].title.slice(0, 50)}" promoted to position 1`);
+  if (bankingIdx > 0) {
+    // Banking article is not already first — promote it, fill rest with most recent others
+    const bankingArticle = mapped[bankingIdx];
+    const others = mapped.filter((_, i) => i !== bankingIdx).slice(0, 2);
+    selected = [bankingArticle, ...others];
+    console.log(`Evening RSS: banking article promoted to position 1: "${bankingArticle.title.slice(0, 50)}"`);
   } else {
-    // No banking article — take 3 most recent
+    // Banking article is already first (or none exists) — take 3 most recent as-is
     selected = mapped.slice(0, 3);
-    console.log('Evening RSS: no banking article found — using 3 most recent');
+    if (bankingIdx === 0) console.log(`Evening RSS: banking article already at position 1`);
+    else console.log('Evening RSS: no banking article found — using 3 most recent');
   }
 
   console.log(`Evening RSS: ${selected.length} DDN articles selected`);
