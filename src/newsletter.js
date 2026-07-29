@@ -457,10 +457,13 @@ Return ONLY a JSON array of strings, one paragraph per story:
       <p style="color:#1a1a1a;font-size:20px;font-weight:800;margin:0 0 16px;">De-Dollarize News</p>
       <p style="color:#333333;font-size:15px;line-height:1.75;margin:0;text-align:left;">The headlines may seem disconnected, but together they reveal powerful trends that could affect your finances and the global economy. In today's edition:</p>
     </div>
-    <div style="padding:8px 40px 24px;">
+    <div style="padding:8px 40px 16px;">
       <ul style="margin:0;padding-left:20px;color:#333333;font-size:15px;line-height:2.1;">
         ${articles.map(a => `<li>${a.title}</li>`).join('')}
       </ul>
+    </div>
+    <div style="padding:0 40px 24px;">
+      <p style="color:#cc0000;font-size:15px;font-weight:700;margin:0;">Keep reading ↓</p>
     </div>
     <div style="height:1px;background:#e8e8e8;margin:0 40px;"></div>`;
 
