@@ -356,8 +356,8 @@ function startCronJob() {
   console.log('📅 Cron: newsletter send PAUSED (11:00pm UTC temporary)');
 
   // 8:00pm UTC (4:00pm EDT) — evening newsletter (articles 4,5,6)
-  cron.schedule('0 20 * * *', runEveningNewsletter, { timezone: 'UTC' });
-  console.log('📅 Cron: evening newsletter at 4:00pm EDT (8:00pm UTC)');
+  cron.schedule('30 20 * * *', runEveningNewsletter, { timezone: 'UTC' });
+  console.log('📅 Cron: evening newsletter at 4:30pm EDT (8:30pm UTC)');
 
   // 3:00am UTC (11:00pm EDT) — process hard bounces from the day's send
   cron.schedule('0 3 * * *', runBounceCleanup, { timezone: 'UTC' });
