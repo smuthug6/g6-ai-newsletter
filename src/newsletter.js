@@ -135,23 +135,27 @@ ${FOOTER_HTML}
 // ── Pick emoji based on subject keywords ─────────────────────────────────────
 function getSubjectEmoji(subject) {
   const s = subject.toLowerCase();
-  if (s.match(/gold|bullion/))                    return '🥇';
-  if (s.match(/silver|eagle/))                    return '🪙';
-  if (s.match(/dollar|usd|currency|fiat|petro/))  return '💵';
-  if (s.match(/fed|federal reserve|powell|rate/)) return '🏦';
-  if (s.match(/bitcoin|crypto|btc/))              return '₿';
-  if (s.match(/oil|energy|opec/))                 return '⛽';
-  if (s.match(/china|brics|russia|yuan/))         return '🌏';
-  if (s.match(/war|conflict|military/))           return '⚠️';
-  if (s.match(/crash|collapse|crisis|danger/))    return '🚨';
-  if (s.match(/debt|deficit|bankrupt/))           return '💸';
-  if (s.match(/inflation|price|cost/))            return '📈';
-  if (s.match(/recession|gdp|economy/))           return '📉';
-  if (s.match(/bank|banking|jpmorgan|wells/))     return '🏛️';
-  if (s.match(/bond|treasury|yield/))             return '📊';
-  if (s.match(/print|money supply|m2/))           return '🖨️';
-  if (s.match(/reset|reorder|shift/))             return '🔄';
-  if (s.match(/protect|safe|wealth|asset/))       return '🛡️';
+  if (s.match(/gold|bullion/))                              return '🥇';
+  if (s.match(/silver|eagle/))                             return '🪙';
+  if (s.match(/dollar|usd|currency|fiat|petro/))           return '💵';
+  if (s.match(/fed|federal reserve|powell|rate/))          return '🏦';
+  if (s.match(/bitcoin|crypto|btc/))                       return '₿';
+  if (s.match(/oil|energy|opec|gas|fuel/))                 return '⛽';
+  if (s.match(/china|brics|russia|yuan/))                  return '🌏';
+  if (s.match(/war|conflict|military|attack/))             return '⚠️';
+  if (s.match(/crash|collapse|crisis|danger|fail/))        return '🚨';
+  if (s.match(/debt|deficit|bankrupt/))                    return '💸';
+  if (s.match(/inflation|price|cost|surge|soar|spike/))    return '📈';
+  if (s.match(/recession|gdp|economy|gdp|slow/))          return '📉';
+  if (s.match(/bank|banking|jpmorgan|wells/))              return '🏛️';
+  if (s.match(/bond|treasury|yield/))                     return '📊';
+  if (s.match(/print|money supply|m2/))                   return '🖨️';
+  if (s.match(/reset|reorder|shift/))                     return '🔄';
+  if (s.match(/protect|safe|wealth|asset/))               return '🛡️';
+  if (s.match(/tax|tariff|trade|sanction/))               return '💼';
+  if (s.match(/card|payment|spend|consumer|retail/))      return '💳';
+  if (s.match(/stock|market|invest|portfolio|equity/))    return '📈';
+  if (s.match(/warning|alert|urgent|risk|threat/))        return '⚠️';
   return '🔥';
 }
 
