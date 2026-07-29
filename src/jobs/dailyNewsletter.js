@@ -354,8 +354,8 @@ function startCronJob() {
   console.log('📅 Cron: auto-approve at 7:55am EDT (11:55am UTC)');
 
   // 12:00pm UTC (8:00am EDT) — send both newsletters
-  cron.schedule('0 15 * * *', runDailyNewsletter, { timezone: 'UTC' });
-  console.log('📅 Cron: newsletter send at 11:00am EDT (3:00pm UTC)');
+  cron.schedule('0 23 * * *', runDailyNewsletter, { timezone: 'UTC' });
+  console.log('📅 Cron: newsletter send PAUSED (11:00pm UTC temporary)');
 
   // 8:00pm UTC (4:00pm EDT) — evening newsletter (articles 4,5,6)
   cron.schedule('0 20 * * *', runEveningNewsletter, { timezone: 'UTC' });
