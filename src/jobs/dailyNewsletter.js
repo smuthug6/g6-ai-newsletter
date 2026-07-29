@@ -313,10 +313,8 @@ async function runBounceCleanup() {
 async function runEveningNewsletter() {
   console.log('🌆 Sending evening newsletter...');
   try {
-    const articles = await getApprovedQueueArticles(3, 3); // skip top 3, take 4,5,6
-    if (articles.length === 0) throw new Error('No articles 4-6 in queue for evening send');
-
-    const result = await generateEveningNewsletter(articles);
+    // Fetches today's DDN articles internally
+    const result = await generateEveningNewsletter();
 
     let allContacts = [];
     try { allContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }

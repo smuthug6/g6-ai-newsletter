@@ -1,6 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { fetchRecentDDNArticles } = require('./wordpressFetcher');
+const { fetchRecentDDNArticles, fetchEveningDDNArticles } = require('./wordpressFetcher');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -414,23 +414,26 @@ const EVENING_HEADER_HTML = (today) => `
       <img src="https://g6-newsletter-images.s3.us-east-1.amazonaws.com/branding/evening-newsletter-header.png" style="width:100%;display:block;" alt="While You Were Distracted — De-Dollarize News">
     </div>`;
 
-// ── Function 4: Evening newsletter — articles 4,5,6 — white bg, blog style ───
-async function generateEveningNewsletter(articles) {
+// ── Function 4: Evening newsletter — today's DDN articles with real images ─────
+async function generateEveningNewsletter() {
   const today = TODAY();
 
+  // Fetch today's DDN articles with real featured images
+  const articles = await fetchEveningDDNArticles();
+  if (articles.length === 0) throw new Error('No DDN articles found for evening newsletter');
+
   const articleContext = articles.map((a, i) =>
-    `Article ${i + 1}:\nTitle: ${a.title}\nSummary: ${a.excerpt || a.summary || '(no summary)'}`
+    `Article ${i + 1}:\nTitle: ${a.title}\nExcerpt: ${a.excerpt || '(no excerpt)'}`
   ).join('\n\n');
 
-  // Claude writes curiosity paragraphs + Imagen generates 3 images concurrently
-  const [response, imageUrls] = await Promise.all([
-    client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 600,
-      system: SYSTEM_PROMPT,
-      messages: [{
-        role: 'user',
-        content: `Write a short curiosity-building paragraph (3-4 sentences) for EACH of these ${articles.length} stories for the De-Dollarize News evening newsletter.
+  // Claude writes curiosity paragraphs only — no Imagen needed (real images from DDN)
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 600,
+    system: SYSTEM_PROMPT,
+    messages: [{
+      role: 'user',
+      content: `Write a short curiosity-building paragraph (3-4 sentences) for EACH of these ${articles.length} stories for the De-Dollarize News evening newsletter.
 
 ${articleContext}
 
@@ -438,24 +441,11 @@ For each story: open with the key insight, build urgency, make readers feel they
 
 Return ONLY a JSON array of strings, one paragraph per story:
 ["Paragraph 1...", "Paragraph 2...", "Paragraph 3..."]`,
-      }],
-    }),
-    (async () => {
-      const urls = [];
-      for (let i = 0; i < articles.length; i++) {
-        const headline = articles[i]?.title || `Story ${i + 1}`;
-        const b64 = await generateStoryImage(headline);
-        if (b64) {
-          try { urls.push(await uploadToS3(b64)); } catch (e) { console.error('S3 upload failed:', e.message); urls.push(null); }
-        } else { urls.push(null); }
-        if (i < articles.length - 1) await new Promise(r => setTimeout(r, 3000));
-      }
-      return urls;
-    })(),
-  ]);
+    }],
+  });
 
   const rawText = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-  const paragraphs = extractJSONArray(rawText) || articles.map(a => a.excerpt || a.summary || '');
+  const paragraphs = extractJSONArray(rawText) || articles.map(a => a.excerpt || '');
 
   // Bullet intro
   const bulletHTML = `
@@ -470,19 +460,20 @@ Return ONLY a JSON array of strings, one paragraph per story:
     </div>
     <div style="height:1px;background:#e8e8e8;margin:0 40px;"></div>`;
 
-  // 3 article blocks
+  // 3 article blocks with real DDN images
   const storiesHTML = articles.map((a, i) => {
-    const para = typeof paragraphs[i] === 'string' ? paragraphs[i] : (a.excerpt || a.summary || '');
-    const imgHTML = imageUrls[i]
-      ? `<img src="${imageUrls[i]}" style="width:100%;height:220px;object-fit:cover;display:block;border-radius:4px;margin-bottom:18px;" alt="">`
+    const para = typeof paragraphs[i] === 'string' ? paragraphs[i] : (a.excerpt || '');
+    const imgHTML = a.imageUrl
+      ? `<img src="${a.imageUrl}" style="width:100%;height:220px;object-fit:cover;display:block;border-radius:4px;margin-bottom:18px;" alt="">`
       : '';
     const divider = i < articles.length - 1 ? `<div style="height:1px;background:#e8e8e8;margin:32px 40px 0;"></div>` : '';
     return `
     <div style="padding:32px 40px 0;">
       ${imgHTML}
+      <p style="color:#cc0000;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 8px;">${a.category || 'De-Dollarize News'}</p>
       <h2 style="color:#1a1a1a;font-size:20px;font-weight:800;margin:0 0 12px;line-height:1.3;">${a.title}</h2>
       <p style="color:#444444;font-size:15px;line-height:1.75;margin:0 0 14px;">${para}</p>
-      <a href="https://dedollarizenews.com" style="color:#cc0000;font-size:13px;font-weight:600;text-decoration:none;">dedollarizenews.com</a>
+      <a href="${a.url}" style="color:#cc0000;font-size:13px;font-weight:600;text-decoration:none;">dedollarizenews.com</a>
     </div>${divider}`;
   }).join('\n');
 
@@ -498,7 +489,6 @@ Return ONLY a JSON array of strings, one paragraph per story:
 
   const bodyContent = bulletHTML + storiesHTML + ctaHTML;
 
-  // Evening uses its own wrapHTML with evening header
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>

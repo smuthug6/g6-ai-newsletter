@@ -163,15 +163,7 @@ router.post('/preview/free', adminAuth, async (req, res) => {
 // ── Preview Evening ───────────────────────────────────────────────────────────
 router.post('/preview/evening', adminAuth, async (req, res) => {
   try {
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const { rows } = await db.query(
-      `SELECT * FROM daily_articles WHERE approved = true AND created_at >= $1 ORDER BY score DESC LIMIT 6`,
-      [todayStart.toISOString()]
-    );
-    const articles = rows.slice(3); // articles 4,5,6
-    if (articles.length === 0) return res.status(404).json({ error: 'Not enough articles for evening send. Need at least 4 approved articles.' });
-    const result = await generateEveningNewsletter(articles);
+    const result = await generateEveningNewsletter();
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

@@ -109,4 +109,39 @@ async function fetchLatestInnerCircleArticle() {
   };
 }
 
-module.exports = { fetchArticlesForNewsletter, fetchLatestInnerCircleArticle, fetchRecentDDNArticles };
+// ── Fetch today's DDN articles for evening newsletter (up to 3, with images) ──
+async function fetchEveningDDNArticles() {
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://dedollarizenews.com/feed/')}`;
+  const res = await fetch(apiUrl);
+  if (!res.ok) throw new Error(`rss2json error: ${res.status}`);
+  const data = await res.json();
+  if (data.status !== 'ok') throw new Error(`rss2json returned: ${data.status}`);
+
+  // Filter for today's articles (last 24h)
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  let items = data.items.filter(item => item.pubDate && new Date(item.pubDate + ' UTC') >= cutoff);
+
+  // Fallback to latest 3 if nothing today
+  if (items.length === 0) {
+    console.warn('Evening: no articles in last 24h — falling back to latest 3');
+    items = data.items.slice(0, 3);
+  }
+
+  // Take up to 3
+  items = items.slice(0, 3);
+  console.log(`Evening RSS: ${items.length} DDN articles`);
+
+  return items.map(item => {
+    const rawUrl = item.enclosure?.link || item.thumbnail || null;
+    const imageUrl = rawUrl ? rawUrl.replace(/-\d+x\d+(\.\w+)$/, '$1') : null;
+    return {
+      title: stripHtml(item.title || ''),
+      excerpt: stripHtml(item.description || '').slice(0, 300).trim(),
+      url: item.link,
+      imageUrl,
+      category: item.categories?.[0] || 'De-Dollarize News',
+    };
+  }).filter(a => a.title && a.url);
+}
+
+module.exports = { fetchArticlesForNewsletter, fetchLatestInnerCircleArticle, fetchRecentDDNArticles, fetchEveningDDNArticles };
