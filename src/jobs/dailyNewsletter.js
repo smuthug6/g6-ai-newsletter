@@ -311,9 +311,9 @@ async function runBounceCleanup() {
 
 // ── Evening newsletter: articles 4,5,6 — sends at 4pm EDT ────────────────────
 async function runEveningNewsletter() {
-  console.log('🌆 Sending evening newsletter...');
+  console.log('🌆 Starting evening newsletter...');
   try {
-    // Fetches today's DDN articles internally
+    // Fetches today's DDN articles internally — returns early if no new articles
     const result = await generateEveningNewsletter();
 
     let allContacts = [];
@@ -336,8 +336,11 @@ async function runEveningNewsletter() {
 
     return { message: `Evening send complete — ${send.sent} sent` };
   } catch (err) {
-    console.error('❌ Evening newsletter failed:', err.message);
-    throw err;
+    if (err.message.includes('No DDN articles')) {
+      console.log('⏭️  Evening newsletter skipped — no new articles on dedollarizenews.com today');
+    } else {
+      console.error('❌ Evening newsletter failed:', err.message);
+    }
   }
 }
 

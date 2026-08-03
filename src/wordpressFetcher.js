@@ -135,10 +135,10 @@ async function fetchEveningDDNArticles() {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   let items = data.items.filter(item => item.pubDate && new Date(item.pubDate + ' UTC') >= cutoff);
 
-  // Fallback to latest articles if nothing today
+  // No new articles today — skip evening send
   if (items.length === 0) {
-    console.warn('Evening: no articles in last 24h — falling back to latest');
-    items = data.items.slice(0, 10);
+    console.warn('Evening: no new DDN articles in last 24h — skipping send');
+    return [];
   }
 
   // Convert to article objects
