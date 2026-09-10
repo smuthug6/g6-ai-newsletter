@@ -286,7 +286,7 @@ router.get('/analytics', adminAuth, async (req, res) => {
       SELECT
         n.id, n.subject, n.sent_to, n.sent_at, n.tier, n.send_id,
         COUNT(DISTINCT CASE WHEN e.event_type = 'open'        THEN e.email END) AS opens,
-        COUNT(DISTINCT CASE WHEN e.event_type = 'click'       THEN e.email END) AS clicks,
+        COUNT(DISTINCT CASE WHEN e.event_type = 'click' AND (e.link IS NULL OR e.link NOT LIKE '%unsubscribe%') THEN e.email END) AS clicks,
         COUNT(DISTINCT CASE WHEN e.event_type = 'bounce'      THEN e.email END) AS bounces,
         COUNT(DISTINCT CASE WHEN e.event_type = 'complaint'   THEN e.email END) AS complaints,
         COUNT(DISTINCT CASE WHEN e.event_type = 'unsubscribe' THEN e.email END) AS unsubscribes

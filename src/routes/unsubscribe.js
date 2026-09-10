@@ -14,7 +14,7 @@ function verifySignature(email, sig) {
 }
 
 router.get('/', async (req, res) => {
-  const { email, sig } = req.query;
+  const { email, sig, send_id: sendId } = req.query;
 
   if (!email || !sig || !verifySignature(email, sig)) {
     return res.status(400).send(page('Invalid unsubscribe link.', false));
@@ -42,8 +42,8 @@ router.get('/', async (req, res) => {
 
     // 3. Log unsubscribe event for analytics
     await db.query(
-      `INSERT INTO email_events (email, event_type, tier, event_time) VALUES ($1, 'unsubscribe', $2, NOW())`,
-      [email, tier]
+      `INSERT INTO email_events (email, event_type, tier, send_id, event_time) VALUES ($1, 'unsubscribe', $2, $3, NOW())`,
+      [email, tier, sendId || null]
     ).catch(() => {});
 
     res.send(page('You have been unsubscribed.', true));
