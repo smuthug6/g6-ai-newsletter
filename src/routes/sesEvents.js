@@ -74,8 +74,8 @@ router.post('/', express.text({ type: '*/*' }), async (req, res) => {
     }
   }
 
-  // Tag clickers in GHL
-  if (email && tier === 'free' && eventType === 'click') {
+  // Tag clickers in GHL (exclude unsubscribe link clicks)
+  if (email && tier === 'free' && eventType === 'click' && !link?.includes('unsubscribe')) {
     try {
       const contactId = await lookupContactByEmail(email);
       if (contactId) {
