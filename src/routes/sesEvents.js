@@ -73,6 +73,19 @@ router.post('/', express.text({ type: '*/*' }), async (req, res) => {
       console.error(`${label}: GHL cleanup failed for ${email}:`, e.message);
     }
   }
+
+  // Tag clickers in GHL
+  if (email && tier === 'free' && eventType === 'click') {
+    try {
+      const contactId = await lookupContactByEmail(email);
+      if (contactId) {
+        await addTagToContact(contactId, 'clicked-ddn-free');
+        console.log(`👆 Click: added clicked-ddn-free — ${email}`);
+      }
+    } catch (e) {
+      console.error(`Click: GHL tag failed for ${email}:`, e.message);
+    }
+  }
 });
 
 module.exports = router;
