@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const db = require('../supabase');
-const { removeTagsFromContact, lookupContactByEmail } = require('../ghl');
+const { removeTagsFromContact, lookupContactByEmail, addTagToContact } = require('../ghl');
 
 function verifySignature(email, sig) {
   const expected = crypto
@@ -33,7 +33,8 @@ router.get('/', async (req, res) => {
       const contactId = await lookupContactByEmail(email);
       if (contactId) {
         await removeTagsFromContact(contactId, ['ddn-free', 'ddn-inner-circle']);
-        console.log(`✅ Unsubscribed ${email} — GHL tags removed, DB frozen`);
+        await addTagToContact(contactId, 'unsubscribed-ddn-free');
+        console.log(`✅ Unsubscribed ${email} — GHL tags removed, unsubscribed-ddn-free added, DB frozen`);
       }
     } catch (ghlErr) {
       console.warn(`GHL tag removal failed for ${email}: ${ghlErr.message}`);
