@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../supabase');
+const { lookupContactByEmail, removeTagsFromContact, addTagToContact } = require('../ghl');
 
 // SNS sends text/plain — parse raw body ourselves
 router.post('/', express.text({ type: '*/*' }), async (req, res) => {
@@ -52,6 +53,25 @@ router.post('/', express.text({ type: '*/*' }), async (req, res) => {
     );
   } catch (e) {
     console.error('Failed to save SES event:', e.message);
+  }
+
+  // Real-time GHL cleanup for complaints and hard bounces (free tier only)
+  const isComplaint = eventType === 'complaint';
+  const isHardBounce = eventType === 'bounce' && bounceType === 'Permanent';
+
+  if (email && tier === 'free' && (isComplaint || isHardBounce)) {
+    const markerTag = isComplaint ? 'complained-ddn-free' : 'bounced-ddn-free';
+    const label = isComplaint ? '🚫 Complaint' : '🗑️ Hard bounce';
+    try {
+      const contactId = await lookupContactByEmail(email);
+      if (contactId) {
+        await removeTagsFromContact(contactId, ['ddn-free']);
+        await addTagToContact(contactId, markerTag);
+        console.log(`${label}: removed ddn-free, added ${markerTag} — ${email}`);
+      }
+    } catch (e) {
+      console.error(`${label}: GHL cleanup failed for ${email}:`, e.message);
+    }
   }
 });
 
