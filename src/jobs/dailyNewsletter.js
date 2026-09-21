@@ -304,6 +304,36 @@ async function runBounceCleanup() {
     }
 
     console.log(`✅ Cleanup done — free removed: ${freed}, premium frozen: ${premiumFrozen}, failed: ${failed}`);
+
+    // ── Soft bounce cleanup: remove contacts with 3+ soft bounces ─────────────
+    const { rows: softBouncers } = await db.query(`
+      SELECT email, COUNT(*) as bounce_count
+      FROM email_events
+      WHERE event_type = 'bounce' AND bounce_type = 'Transient' AND tier = 'free'
+      GROUP BY email HAVING COUNT(*) >= 3
+    `);
+
+    if (softBouncers.length > 0) {
+      console.log(`🔍 ${softBouncers.length} soft bouncer(s) with 3+ bounces to process`);
+      let softCleaned = 0, softFailed = 0;
+      for (const { email, bounce_count } of softBouncers) {
+        try {
+          const contactId = await lookupContactByEmail(email);
+          if (contactId) {
+            await removeTagsFromContact(contactId, ['ddn-free']);
+            await addTagToContact(contactId, 'soft-bounced-ddn-free');
+            console.log(`🟡 Soft bounce (${bounce_count}x): removed ddn-free, added soft-bounced-ddn-free — ${email}`);
+            softCleaned++;
+          }
+        } catch (err) {
+          console.error(`Failed soft bounce cleanup for ${email}: ${err.message}`);
+          softFailed++;
+        }
+      }
+      console.log(`✅ Soft bounce cleanup done — removed: ${softCleaned}, failed: ${softFailed}`);
+    } else {
+      console.log('✅ No soft bouncers (3+) to clean up today');
+    }
   } catch (err) {
     console.error('❌ Cleanup failed:', err.message);
   }
