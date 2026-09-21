@@ -14,57 +14,64 @@
 ## THE PROJECT
 **What it is:** A fully automated daily email newsletter platform for "De-Dollarize News" — a financial newsletter about de-dollarization, gold, silver, dollar collapse, and wealth protection.
 
-**Live URL:** https://ai.g6platform.com  
-**Code:** `/Users/g6dev/Desktop/g6-ai-newsletter`  
-**GitHub:** https://github.com/smuthug6/g6-ai-newsletter (account: smuthug6)  
-**Render service:** g6-ai-newsletter  
-**Language:** JavaScript (Node.js v24)  
+**Live URL:** https://ai.g6platform.com
+**Code:** `/Users/g6dev/Desktop/g6-ai-newsletter`
+**GitHub:** https://github.com/smuthug6/g6-ai-newsletter (account: smuthug6)
+**Render service:** g6-ai-newsletter
+**Language:** JavaScript (Node.js v24)
 
 ---
 
 ## TWO NEWSLETTER TIERS
 
 ### FREE NEWSLETTER
-- **Recipients:** GHL contacts tagged `ddn-free` (~280+ contacts)
+- **Recipients:** GHL contacts tagged `ddn-free` (~9,000–10,000 contacts)
+- **GHL API hard cap:** GHL pagination caps at 10,000 contacts (page 101 returns 400). List has grown past 10k — anyone beyond 10k won't get the email until this is resolved.
 - **Content:** Top 3 Dream 100 teasers + AI images + 2 DDN articles + 2 CTAs
-- **Send time:** 8am EDT daily via AWS SES
+- **Send:** Manual only via admin dashboard (no cron). Batches into 4 sends over 90 minutes.
+
+### EVENING NEWSLETTER
+- **Recipients:** Same `ddn-free` GHL list
+- **Content:** "While You Were Distracted" — 3 today's DDN articles, Claude curiosity paragraphs, banking article promoted to #1
+- **Send:** Manual only. Sends all at once (~16 min for 10k contacts). Gracefully skips if no new DDN articles today.
 
 ### PREMIUM NEWSLETTER (Inner Circle)
-- **Recipients:** 31 active subscribers in Neon DB (tagged `ddn-inner-circle` in GHL)
-- **Content:** Latest Inner Circle article from dedollarizenews.com/category/inner-circle/feed/ — full-width image, big headline, 2 Claude paragraphs, red CTA button
-- **Send time:** 8am EDT daily via AWS SES
+- **Recipients:** ~43–47 active subscribers in Neon DB (tagged `ddn-inner-circle` in GHL)
+- **Content:** Latest Inner Circle article + Claude writes 2 paragraphs. No em dashes (—).
+- **Send:** Manual only via admin dashboard. Skips weekends only when using "Send Both" — manual "Send Premium Only" sends any day.
 
 ---
 
-## DAILY CRON SCHEDULE (all EDT)
+## CRON SCHEDULE (all UTC — NO send crons, all sends are manual)
 ```
-7:00am  — Content aggregator: fetches Dream 100 RSS, Grok-3 ranks top 10, saves to daily_articles DB
-7:55am  — Auto-approve top 5 if not manually approved
-8:00am  — BOTH newsletters send simultaneously
+11:00am UTC (7:00am EDT)  — Content aggregator: Dream 100 RSS → Grok-3 ranks → saves top 10 to daily_articles
+11:55am UTC (7:55am EDT)  — Auto-approve top 5 if none manually approved
+3:00am UTC  (11:00pm EDT) — Nightly bounce/complaint/soft-bounce cleanup
 ```
+**Important:** Morning, evening, and premium sends were all removed from cron. Everything is manual via the dashboard.
 
 ---
 
 ## TECH STACK
-- **Hosting:** Render (web service, auto-deploys from GitHub main branch)
-- **Database:** Neon DB (PostgreSQL, paid plan, scale to zero after 5min)
-  - Connection: pg Pool in `src/supabase.js`
+- **Hosting:** Render (web service, free plan — manual deploy required after every push)
+- **Database:** Neon DB (PostgreSQL, scale to zero after 5min, wake-up ping before aggregator)
+  - Connection: pg Pool in `src/supabase.js` (60s timeout)
   - Tables: subscribers, newsletters, daily_articles, email_events, oauth_tokens
-- **Email delivery:** AWS SES SMTP via nodemailer (14/sec rate, 50k/day quota)
-- **CRM:** GoHighLevel (GHL) — API key in Render env vars
+- **Email delivery:** AWS SES SMTP via nodemailer (14/sec max, 50k/day quota, 100ms delay = 10/sec safe)
+- **CRM:** GoHighLevel (GHL) — static API key in Render env vars (doesn't expire)
 - **AI:** Claude Sonnet 4.6 (newsletter writing), Grok-3/xAI (content ranking), Google Imagen 4 (story images)
 - **Image hosting:** AWS S3 bucket `g6-newsletter-images`
-- **RSS proxy:** rss2json.com (bypasses Cloudflare on Render IPs)
+- **RSS proxy:** rss2json.com (bypasses Cloudflare blocking Render IPs from hitting DDN directly)
 
 ---
 
-## KEY ENV VARS (set in Render, NOT in local .env)
+## KEY ENV VARS (set in Render, NOT in local .env — local .env is stale)
 ```
-DATABASE_URL           — Neon DB connection string
+DATABASE_URL           — Neon DB connection string (local .env has valid DB URL)
 ANTHROPIC_API_KEY      — Claude API
-GHL_API_KEY            — GoHighLevel (valid, in Render)
+GHL_API_KEY            — GoHighLevel static key (valid, doesn't expire)
 GHL_LOCATION_ID        — GHL location
-GHL_WEBHOOK_SECRET     — Admin dashboard password + HMAC signing key
+GHL_WEBHOOK_SECRET     — Admin dashboard password + HMAC signing key (blank in local .env)
 GROK_API_KEY           — xAI Grok-3
 GOOGLE_AI_KEY          — Google Imagen 4
 SES_SMTP_USERNAME      — AWS SES
@@ -73,7 +80,6 @@ SES_FROM_EMAIL         — newsletter@mail.dedollarizenews.com
 AWS_S3_ACCESS_KEY_ID   — S3 uploads
 AWS_S3_SECRET_ACCESS_KEY — S3 uploads
 ```
-Note: Local `.env` has stale/different values for some keys. Always use Render env vars as source of truth for production.
 
 ---
 
@@ -81,71 +87,115 @@ Note: Local `.env` has stale/different values for some keys. Always use Render e
 ```
 g6-ai-newsletter/
 ├── src/
-│   ├── index.js              — Express server + cron wiring
+│   ├── index.js              — Express server + cron wiring + startCronJob()
 │   ├── supabase.js           — Neon DB pg Pool
-│   ├── newsletter.js         — generatePremiumNewsletter() + generateFreeNewsletter()
-│   ├── email.js              — sendBulk() + generateUnsubscribeUrl() (HMAC)
-│   ├── ghl.js                — getContactsByTag() + lookupContactByEmail() + removeTagsFromContact()
-│   ├── wordpressFetcher.js   — fetchLatestInnerCircleArticle() + fetchRecentDDNArticles() via rss2json
+│   ├── newsletter.js         — generatePremiumNewsletter(), generateFreeNewsletter(), generateEveningNewsletter()
+│   ├── email.js              — sendBulk(), generateUnsubscribeUrl(email, sendId) — HMAC signed, sendId embedded
+│   ├── ghl.js                — getContactsByTag(), lookupContactByEmail(), removeTagsFromContact(), addTagToContact()
+│   ├── wordpressFetcher.js   — fetchLatestInnerCircleArticle(), fetchRecentDDNArticles(), fetchEveningDDNArticles()
 │   ├── jobs/
-│   │   ├── dailyNewsletter.js    — runDailyNewsletter(), runPremiumNewsletter(), runFreeNewsletter()
-│   │   └── contentAggregator.js  — fetchAllFeeds(), rankWithGrok(), saveTopicsToQueue()
+│   │   ├── dailyNewsletter.js    — runPremiumNewsletter(), runFreeNewsletter(), runEveningNewsletter(), runBounceCleanup()
+│   │   └── contentAggregator.js  — fetchAllFeeds(), rankWithGrok(), saveTopicsToQueue(), autoApproveTop5()
 │   └── routes/
 │       ├── admin.js          — All admin API endpoints
-│       ├── unsubscribe.js    — GET /unsubscribe?email=xxx&sig=xxx
+│       ├── unsubscribe.js    — GET /unsubscribe?email=xxx&sig=xxx&send_id=xxx
 │       ├── webhook.js        — GHL subscribe/cancel webhooks
-│       ├── oauth.js          — GHL OAuth
-│       └── sesEvents.js      — AWS SNS event tracking
+│       ├── oauth.js          — GHL OAuth (legacy, not actively used)
+│       └── sesEvents.js      — AWS SNS event tracking + real-time GHL tag actions
 ├── public/
-│   └── admin.html            — Admin dashboard UI
-├── ARCHITECTURE.html         — Visual system diagram (light theme)
-├── ARCHITECTURE.md           — Text version of architecture
-└── render.yaml               — Render deploy config
+│   └── admin.html            — Admin dashboard UI (light/dark theme, G6 gold #b8862a)
+├── ARCHITECTURE.html         — Visual system diagram
+└── render.yaml               — Render deploy config (free plan)
 ```
 
 ---
 
 ## ADMIN DASHBOARD
 - URL: https://ai.g6platform.com
-- Password: stored as GHL_WEBHOOK_SECRET in Render
-- Features: stats, content queue (approve/reject articles), preview free/premium, send free/premium/both, subscribers list (scrollable), analytics
+- Password: GHL_WEBHOOK_SECRET (stored in Render)
+- Features: stats, content queue (approve/reject/reorder/custom), 3 preview types, 4 send buttons, subscribers list, analytics with drill-down, light/dark theme toggle
 
 ---
 
-## CONTENT PIPELINE (FREE)
-1. Dream 100 RSS sources fetched via `rss-parser`
-2. Keywords filter (40+ financial terms)
-3. Grok-3 ranks top 10 by virality score (1-100)
-4. Saved to `daily_articles` table
-5. Top 3 approved articles used in free newsletter
-6. Claude writes 2-sentence teasers per story
-7. Google Imagen 4 generates images from headlines → S3
-8. rss2json fetches 2 recent DDN articles with real images
+## GHL TAG SYSTEM — FULL LIST
+Every action on the email applies tags in GHL automatically:
 
-## CONTENT PIPELINE (PREMIUM)
-1. Fetches `dedollarizenews.com/category/inner-circle/feed/` via rss2json.com proxy
-2. Takes the LATEST article
-3. Claude writes 2 paragraphs (faithful to excerpt + expanded curiosity builder)
-4. No em dashes (—) in content — explicitly told to Claude
-5. Sends to 31 Neon DB active subscribers
+| Action | Tag Added | Tag Removed |
+|--------|-----------|-------------|
+| Click any content/CTA link | `clicked-ddn-free` | — |
+| Click unsubscribe link | (excluded — no tag) | — |
+| Unsubscribe (clicks our page) | `unsubscribed-ddn-free` | `ddn-free`, `ddn-inner-circle` |
+| Complaint (spam report) | `complained-ddn-free` | `ddn-free` |
+| Hard bounce (Permanent) | `bounced-ddn-free` | `ddn-free` |
+| Soft bounce (3+ times) | `soft-bounced-ddn-free` | `ddn-free` |
+
+**Send list tags:**
+- `ddn-free` — who gets free + evening newsletter (pulled via GHL API)
+- `ddn-inner-circle` — who gets premium (but we pull from Neon DB subscribers table, not GHL tag)
+
+---
+
+## BOUNCE / COMPLAINT / UNSUBSCRIBE HANDLING
+
+### Real-time (sesEvents.js — fires immediately on SES event):
+- **Hard bounce** → removes `ddn-free`, adds `bounced-ddn-free` in GHL
+- **Complaint** → removes `ddn-free`, adds `complained-ddn-free` in GHL
+- **Click** (non-unsubscribe links) → adds `clicked-ddn-free` in GHL
+- Unsubscribe link clicks excluded from `clicked-ddn-free` (filtered by link containing "unsubscribe")
+
+### Nightly cleanup at 11pm EDT (runBounceCleanup()):
+- Hard bounces + complaints from last 24h → same GHL tag actions (safety net if real-time failed)
+- Premium hard bounces/complaints → freeze in Neon DB
+- **Soft bounces (3+ total)** → removes `ddn-free`, adds `soft-bounced-ddn-free` (checks all-time count)
+
+### Unsubscribe (self-hosted /unsubscribe route — real-time on page visit):
+- Removes `ddn-free` + `ddn-inner-circle` from GHL
+- Adds `unsubscribed-ddn-free` to GHL
+- Freezes in Neon DB if premium subscriber
+- Logs event to email_events WITH send_id (send_id now embedded in unsubscribe URL)
+
+### Soft bounces:
+- Single soft bounce = ignored (temporary — full inbox, server down etc.)
+- 3+ soft bounces = removed from list via nightly cleanup
+- One-time cleanup already ran Aug 3 2026 — removed 461 repeat soft bouncers
+
+---
+
+## ANALYTICS — HOW IT WORKS
+- All events (open, click, bounce, complaint, unsubscribe) tracked via SES → SNS → `/ses-events` → `email_events` table
+- Analytics query joins `email_events` to `newsletters` via `send_id`
+- **Clicks exclude unsubscribe link clicks** (link NOT LIKE '%unsubscribe%') — fixed Sep 2026
+- **Unsubscribes now have send_id** embedded in URL → show correctly per newsletter — fixed Sep 2026
+- Historical unsubscribes (before Sep 2026) show 0 — send_id was null, can't retroactively fix
+- Apple MPP (Mail Privacy Protection) inflates open rates — Aug 12 (29%) and Aug 21 (40%) were false peaks
+
+---
+
+## DELIVERABILITY STATUS (as of Sep 2026)
+- **Open rates declining**: Was 6-9% in Aug, dropped to 3-5% in Sep
+- **Bounce rates increasing**: 0.3-0.75% in Aug → 1.57-1.75% in Sep (SES danger threshold: 5%)
+- **Hard bounce spike**: Sep 17 had 39 hard bounces in one send (normal is 0-6) — suspicious batch of bad emails
+- **Complaint rate**: ~9 complaints in last 7 days — SES threshold is 0.08% (7 complaints on 8,500 send)
+- **Root cause**: Rapid list growth (2k → 10k) brought in many low-quality/invalid emails
+- **List shrinking**: 9,970 → ~8,800 as bounces/complaints are cleaned out
+- **Previous platform (Daily AI)**: Was sending to ~54k contacts (33k active + 21k activating) with 23-48% open rates. Contacted them Sep 2026 to request list export segmented by active/activating.
 
 ---
 
 ## UNSUBSCRIBE SYSTEM
-- Self-hosted at `GET /unsubscribe?email=xxx&sig=xxx`
+- Self-hosted at `GET /unsubscribe?email=xxx&sig=xxx&send_id=xxx`
 - HMAC-SHA256 signed with GHL_WEBHOOK_SECRET (first 16 chars of hex)
-- On click: freezes in Neon DB + removes `ddn-free` AND `ddn-inner-circle` tags from GHL
-- URL auto-injected per contact in `sendBulk()` via placeholder `UNSUBSCRIBE_URL_PLACEHOLDER`
-- Shows branded confirmation page on dedollarizenews.com domain style
+- send_id now embedded in URL so unsubscribes link to the correct newsletter in analytics
+- Shows branded confirmation page
 
 ---
 
 ## GHL SETUP
-- Free list: contacts tagged `ddn-free`
-- Premium list: contacts tagged `ddn-inner-circle` (31 contacts migrated to Neon DB)
-- GHL webhook at `/webhook/ghl`: event=subscribe adds to DB, event=cancel freezes
-- GHL API key: private integration (static, doesn't expire)
-- GHL trigger links don't work with SES sends (only work when GHL sends email) — that's why we built self-hosted unsubscribe
+- Free list: contacts tagged `ddn-free` (GHL API caps at 10,000 contacts — page 101 returns 400)
+- Premium list: contacts tagged `ddn-inner-circle` (but pulled from Neon DB, not GHL)
+- GHL webhook at `/webhook/ghl`: event=subscribe adds/reactivates in DB, event=cancel freezes
+- GHL API key: static private integration key (doesn't expire)
+- GHL trigger links don't work with SES sends — that's why we built self-hosted unsubscribe
 
 ---
 
@@ -155,17 +205,7 @@ g6-ai-newsletter/
 - Our delay: 100ms per email (10/sec — safe under limit)
 - SES config set: `newsletter-tracking`
 - Events tracked via SNS → `/ses-events` → `email_events` table
-
----
-
-## IMPORTANT BUGS FIXED (history)
-- Neon DB 4-min ping removed (was burning free compute quota)
-- Claude model updated from `claude-sonnet-4-20250514` (retired) to `claude-sonnet-4-6`
-- Anthropic SDK upgraded from 0.24 to 0.105
-- GHL OAuth tokens expired → switched to static GHL_API_KEY
-- WP REST API 403 (Cloudflare blocks Render IPs) → switched to rss2json proxy
-- Duplicate aggregator cron removed from index.js
-- DB connection timeout increased to 60s + wake-up ping before aggregator
+- SES complaint threshold: 0.08% — stay under this or account gets flagged
 
 ---
 
@@ -174,38 +214,73 @@ g6-ai-newsletter/
 2. `git add`, `git commit`, `git push origin main`
 3. Go to Render dashboard → g6-ai-newsletter → **Manual Deploy → Deploy latest commit**
 4. Wait 2-3 minutes for "Live" status
-5. NOTE: Render auto-deploy from GitHub is NOT reliably enabled — always manual deploy after pushing
+5. Render auto-deploy from GitHub is NOT reliably enabled — always manual deploy
 
 ---
 
-## DATABASE QUICK CHECKS
-Run these locally to check DB state:
+## DATABASE QUICK CHECKS (run locally — DATABASE_URL is valid in local .env)
 ```bash
 cd /Users/g6dev/Desktop/g6-ai-newsletter
+
+# Active premium subscribers
+node -e "require('dotenv').config(); const {Pool}=require('pg'); const p=new Pool({connectionString:process.env.DATABASE_URL}); p.query(\"SELECT COUNT(*) FROM subscribers WHERE status='active'\").then(r=>{console.log('Active:',r.rows[0].count);p.end()});"
+
+# Last 5 newsletters with analytics
 node -e "
 require('dotenv').config();
 const { Pool } = require('pg');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-pool.query(\"SELECT COUNT(*) FROM subscribers WHERE status = 'active'\").then(r => { console.log('Active:', r.rows[0].count); pool.end(); });
+pool.query(\`
+  SELECT n.subject, n.tier, n.sent_to, n.sent_at,
+    COUNT(DISTINCT CASE WHEN e.event_type='open' THEN e.email END) as opens,
+    COUNT(DISTINCT CASE WHEN e.event_type='click' AND (e.link IS NULL OR e.link NOT LIKE '%unsubscribe%') THEN e.email END) as clicks,
+    COUNT(DISTINCT CASE WHEN e.event_type='bounce' THEN e.email END) as bounces,
+    COUNT(DISTINCT CASE WHEN e.event_type='complaint' THEN e.email END) as complaints
+  FROM newsletters n
+  LEFT JOIN email_events e ON e.send_id = n.send_id
+  GROUP BY n.id ORDER BY n.sent_at DESC LIMIT 5
+\`).then(r=>{console.log(JSON.stringify(r.rows,null,2));pool.end()});
 "
-```
-
-Check GHL contacts for any tag:
-```bash
-curl "https://ai.g6platform.com/admin/ghl-contacts?token=TOKEN&tag=TAG_NAME"
 ```
 
 ---
 
-## WHAT IS NOT YET DONE
-- SES daily quota increase (needed before scaling to 70k contacts — teammate to request in AWS)
-- Render auto-deploy not configured (manual deploy needed after every push)
+## IMPORTANT BUGS FIXED (full history)
+- Neon DB 4-min ping removed (was burning free compute quota)
+- Claude model updated from `claude-sonnet-4-20250514` (retired) to `claude-sonnet-4-6`
+- Anthropic SDK upgraded from 0.24 to 0.105
+- GHL OAuth tokens expired → switched to static GHL_API_KEY
+- WP REST API 403 (Cloudflare blocks Render IPs) → switched to rss2json proxy
+- Duplicate aggregator cron removed from index.js
+- DB connection timeout increased to 60s + wake-up ping before aggregator
+- Morning + evening send crons removed — all sends are now manual
+- One-time soft bounce cleanup ran Aug 3 2026 — removed 461 repeat bouncers
+
+## CHANGES MADE Sep 2026 (this session)
+- `sesEvents.js`: Real-time complaint + hard bounce GHL tag removal (no more waiting for nightly cleanup)
+- `sesEvents.js`: Real-time `clicked-ddn-free` tag on email link clicks (unsubscribe links excluded)
+- `unsubscribe.js`: Added `unsubscribed-ddn-free` tag to GHL on unsubscribe
+- `email.js`: Embedded `send_id` in unsubscribe URL so analytics shows unsubscribes per newsletter
+- `unsubscribe.js`: Logs unsubscribe event with `send_id` to email_events
+- `admin.js`: Analytics clicks column now excludes unsubscribe link clicks (NOT LIKE '%unsubscribe%')
+- `dailyNewsletter.js`: Added ongoing soft bounce cleanup to nightly job — 3+ soft bounces → remove `ddn-free`, add `soft-bounced-ddn-free`
+
+---
+
+## OPEN ITEMS / NEXT STEPS
+- **GHL 10k contact cap**: Need to fix getContactsByTag() to handle lists over 10,000 (page 101 returns 400, currently stops at 10k)
+- **Deliverability**: Open rates dropped 3-5%, bounce rates climbing. Need to improve list quality.
+- **Daily AI list import**: Contacted Daily AI Sep 2026 to request export of ~54k contacts (33k active + 21k activating). Once received, plan to import active list into GHL carefully.
+- **SES daily quota increase**: Needed before scaling to 50k+ contacts (current limit 50k/day)
+- **Render auto-deploy**: Not configured — manual deploy required after every push
 
 ---
 
 ## NOTES / PREFERENCES
-- User prefers concise answers — don't over-explain
-- Always ask before pushing to GitHub if it's not a bug fix or feature
+- Sab prefers concise answers — don't over-explain
+- Always ask before pushing to GitHub if it's not a clear bug fix or feature
 - Never add em dashes (—) in newsletter content
 - The word "Unsubscribe" in emails should always be small and subtle gray (not red)
 - Image prompts for free newsletter: clean editorial photography, bright natural lighting (NOT dark/dramatic)
+- DB can be queried locally using DATABASE_URL from local .env (it's valid)
+- GHL_WEBHOOK_SECRET is blank in local .env — use Render for anything needing that
