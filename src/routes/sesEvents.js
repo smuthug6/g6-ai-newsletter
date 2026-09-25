@@ -65,9 +65,9 @@ router.post('/', express.text({ type: '*/*' }), async (req, res) => {
     try {
       const contactId = await lookupContactByEmail(email);
       if (contactId) {
-        await removeTagsFromContact(contactId, ['ddn-free']);
+        await removeTagsFromContact(contactId, ['ddn-free', 'ddn-free-active']);
         await addTagToContact(contactId, markerTag);
-        console.log(`${label}: removed ddn-free, added ${markerTag} — ${email}`);
+        console.log(`${label}: removed ddn-free + ddn-free-active, added ${markerTag} — ${email}`);
       }
     } catch (e) {
       console.error(`${label}: GHL cleanup failed for ${email}:`, e.message);

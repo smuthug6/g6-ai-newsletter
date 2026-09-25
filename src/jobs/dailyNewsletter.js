@@ -13,9 +13,9 @@ async function getPremiumRecipients() {
   return rows.map(r => ({ email: r.email }));
 }
 
-// ── Free: GHL contacts with ddn-free-test tag ────────────────────────────────
+// ── Free: GHL contacts with ddn-free-active tag ──────────────────────────────
 async function getFreeRecipients() {
-  const contacts = await getContactsByTag('ddn-free');
+  const contacts = await getContactsByTag('ddn-free-active');
   const seen = new Set();
   return contacts
     .map(c => ({ email: (c.email || c.emailAddress || '').trim() }))
@@ -287,9 +287,9 @@ async function runBounceCleanup() {
         if (tier === 'free') {
           const contactId = await lookupContactByEmail(email);
           if (contactId) {
-            await removeTagsFromContact(contactId, ['ddn-free']);
+            await removeTagsFromContact(contactId, ['ddn-free', 'ddn-free-active']);
             await addTagToContact(contactId, freeTag);
-            console.log(`${logLabel}: removed ddn-free, added ${freeTag} — ${email}`);
+            console.log(`${logLabel}: removed ddn-free + ddn-free-active, added ${freeTag} — ${email}`);
             freed++;
           }
         } else if (tier === 'premium') {
@@ -320,9 +320,9 @@ async function runBounceCleanup() {
         try {
           const contactId = await lookupContactByEmail(email);
           if (contactId) {
-            await removeTagsFromContact(contactId, ['ddn-free']);
+            await removeTagsFromContact(contactId, ['ddn-free', 'ddn-free-active']);
             await addTagToContact(contactId, 'soft-bounced-ddn-free');
-            console.log(`🟡 Soft bounce (${bounce_count}x): removed ddn-free, added soft-bounced-ddn-free — ${email}`);
+            console.log(`🟡 Soft bounce (${bounce_count}x): removed ddn-free + ddn-free-active, added soft-bounced-ddn-free — ${email}`);
             softCleaned++;
           }
         } catch (err) {

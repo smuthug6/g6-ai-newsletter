@@ -32,7 +32,7 @@ router.get('/', async (req, res) => {
     try {
       const contactId = await lookupContactByEmail(email);
       if (contactId) {
-        await removeTagsFromContact(contactId, ['ddn-free', 'ddn-inner-circle']);
+        await removeTagsFromContact(contactId, ['ddn-free', 'ddn-free-active', 'ddn-inner-circle']);
         await addTagToContact(contactId, 'unsubscribed-ddn-free');
         console.log(`✅ Unsubscribed ${email} — GHL tags removed, unsubscribed-ddn-free added, DB frozen`);
       }
