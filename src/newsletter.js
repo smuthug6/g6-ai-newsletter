@@ -480,7 +480,7 @@ Return ONLY a JSON array of strings, one paragraph per story:
       <p style="color:#cc0000;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 8px;">${a.category || 'De-Dollarize News'}</p>
       <h2 style="color:#1a1a1a;font-size:20px;font-weight:800;margin:0 0 12px;line-height:1.3;">${a.title}</h2>
       <p style="color:#444444;font-size:15px;line-height:1.75;margin:0 0 14px;">${para}</p>
-      <a href="${a.url}" style="color:#cc0000;font-size:13px;font-weight:600;text-decoration:none;">dedollarizenews.com</a>
+      <a href="${a.url}" style="color:#1a0dab;font-size:15px;font-weight:400;text-decoration:underline;">${a.title}</a>
     </div>${divider}`;
   }).join('\n');
 
