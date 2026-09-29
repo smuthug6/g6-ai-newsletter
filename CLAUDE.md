@@ -22,23 +22,34 @@
 
 ---
 
-## TWO NEWSLETTER TIERS
+## THREE NEWSLETTER TYPES
 
-### FREE NEWSLETTER
-- **Recipients:** GHL contacts tagged `ddn-free` (~9,000–10,000 contacts)
-- **GHL API hard cap:** GHL pagination caps at 10,000 contacts (page 101 returns 400). List has grown past 10k — anyone beyond 10k won't get the email until this is resolved.
+### FREE NEWSLETTER (Morning Teaser)
+- **Recipients:** GHL contacts tagged `ddn-free-active` (currently ~1,679 contacts — clean active list)
 - **Content:** Top 3 Dream 100 teasers + AI images + 2 DDN articles + 2 CTAs
-- **Send:** Manual only via admin dashboard (no cron). Batches into 4 sends over 90 minutes.
+- **Send:** Manual only via admin dashboard. Batches into 4 sends over 90 minutes.
+- **Status:** Paused for now — only evening is being sent daily
 
 ### EVENING NEWSLETTER
-- **Recipients:** Same `ddn-free` GHL list
-- **Content:** "While You Were Distracted" — 3 today's DDN articles, Claude curiosity paragraphs, banking article promoted to #1
-- **Send:** Manual only. Sends all at once (~16 min for 10k contacts). Gracefully skips if no new DDN articles today.
+- **Recipients:** GHL contacts tagged `ddn-free-active` (same 1,679 contacts)
+- **Content:** "While You Were Distracted" — 3 today's DDN articles, Claude curiosity paragraphs, banking article promoted to #1. Article links are now blue underlined titles (not red dedollarizenews.com)
+- **Send:** Manual only. Sends all at once (~3 min for 1,679 contacts). Gracefully skips if no new DDN articles today.
+- **Current operation:** This is the ONLY newsletter being sent daily as of Sep 2026
 
 ### PREMIUM NEWSLETTER (Inner Circle)
 - **Recipients:** ~43–47 active subscribers in Neon DB (tagged `ddn-inner-circle` in GHL)
 - **Content:** Latest Inner Circle article + Claude writes 2 paragraphs. No em dashes (—).
 - **Send:** Manual only via admin dashboard. Skips weekends only when using "Send Both" — manual "Send Premium Only" sends any day.
+
+---
+
+## SEND LIST — IMPORTANT CHANGE (Sep 2026)
+- **OLD tag:** `ddn-free` (~9,970 contacts — had deliverability issues)
+- **NEW tag:** `ddn-free-active` (~1,679 contacts — clean curated active list)
+- Sab manually tagged clean contacts with `ddn-free-active` in GHL
+- All bounce/complaint/unsubscribe cleanup now removes BOTH `ddn-free` AND `ddn-free-active`
+- `ddn-free` tag still exists on contacts but is no longer used for sending
+- Seed emails added to `ddn-free-active` list for inbox testing
 
 ---
 
@@ -48,7 +59,7 @@
 11:55am UTC (7:55am EDT)  — Auto-approve top 5 if none manually approved
 3:00am UTC  (11:00pm EDT) — Nightly bounce/complaint/soft-bounce cleanup
 ```
-**Important:** Morning, evening, and premium sends were all removed from cron. Everything is manual via the dashboard.
+**Important:** All newsletter sends are manual via the dashboard. No send crons.
 
 ---
 
@@ -120,44 +131,45 @@ g6-ai-newsletter/
 ## GHL TAG SYSTEM — FULL LIST
 Every action on the email applies tags in GHL automatically:
 
-| Action | Tag Added | Tag Removed |
+| Action | Tag Added | Tags Removed |
 |--------|-----------|-------------|
 | Click any content/CTA link | `clicked-ddn-free` | — |
 | Click unsubscribe link | (excluded — no tag) | — |
-| Unsubscribe (clicks our page) | `unsubscribed-ddn-free` | `ddn-free`, `ddn-inner-circle` |
-| Complaint (spam report) | `complained-ddn-free` | `ddn-free` |
-| Hard bounce (Permanent) | `bounced-ddn-free` | `ddn-free` |
-| Soft bounce (3+ times) | `soft-bounced-ddn-free` | `ddn-free` |
+| Unsubscribe (clicks our page) | `unsubscribed-ddn-free` | `ddn-free`, `ddn-free-active`, `ddn-inner-circle` |
+| Complaint (spam report) | `complained-ddn-free` | `ddn-free`, `ddn-free-active` |
+| Hard bounce (Permanent) | `bounced-ddn-free` | `ddn-free`, `ddn-free-active` |
+| Soft bounce (3+ times) | `soft-bounced-ddn-free` | `ddn-free`, `ddn-free-active` |
 
 **Send list tags:**
-- `ddn-free` — who gets free + evening newsletter (pulled via GHL API)
-- `ddn-inner-circle` — who gets premium (but we pull from Neon DB subscribers table, not GHL tag)
+- `ddn-free-active` — CURRENT send list (1,679 clean contacts) — used for free + evening newsletter
+- `ddn-free` — old send tag (still on contacts, no longer used for sending)
+- `ddn-inner-circle` — premium tier (pulled from Neon DB, not GHL tag)
 
 ---
 
 ## BOUNCE / COMPLAINT / UNSUBSCRIBE HANDLING
 
 ### Real-time (sesEvents.js — fires immediately on SES event):
-- **Hard bounce** → removes `ddn-free`, adds `bounced-ddn-free` in GHL
-- **Complaint** → removes `ddn-free`, adds `complained-ddn-free` in GHL
+- **Hard bounce** → removes `ddn-free` + `ddn-free-active`, adds `bounced-ddn-free` in GHL
+- **Complaint** → removes `ddn-free` + `ddn-free-active`, adds `complained-ddn-free` in GHL
 - **Click** (non-unsubscribe links) → adds `clicked-ddn-free` in GHL
 - Unsubscribe link clicks excluded from `clicked-ddn-free` (filtered by link containing "unsubscribe")
 
 ### Nightly cleanup at 11pm EDT (runBounceCleanup()):
 - Hard bounces + complaints from last 24h → same GHL tag actions (safety net if real-time failed)
 - Premium hard bounces/complaints → freeze in Neon DB
-- **Soft bounces (3+ total)** → removes `ddn-free`, adds `soft-bounced-ddn-free` (checks all-time count)
+- **Soft bounces (3+ total)** → removes `ddn-free` + `ddn-free-active`, adds `soft-bounced-ddn-free`
 
 ### Unsubscribe (self-hosted /unsubscribe route — real-time on page visit):
-- Removes `ddn-free` + `ddn-inner-circle` from GHL
+- Removes `ddn-free` + `ddn-free-active` + `ddn-inner-circle` from GHL
 - Adds `unsubscribed-ddn-free` to GHL
 - Freezes in Neon DB if premium subscriber
-- Logs event to email_events WITH send_id (send_id now embedded in unsubscribe URL)
+- Logs event to email_events WITH send_id (send_id embedded in unsubscribe URL)
 
 ### Soft bounces:
 - Single soft bounce = ignored (temporary — full inbox, server down etc.)
 - 3+ soft bounces = removed from list via nightly cleanup
-- One-time cleanup already ran Aug 3 2026 — removed 461 repeat soft bouncers
+- One-time cleanup ran Aug 3 2026 — removed 461 repeat soft bouncers
 
 ---
 
@@ -172,30 +184,37 @@ Every action on the email applies tags in GHL automatically:
 ---
 
 ## DELIVERABILITY STATUS (as of Sep 2026)
-- **Open rates declining**: Was 6-9% in Aug, dropped to 3-5% in Sep
-- **Bounce rates increasing**: 0.3-0.75% in Aug → 1.57-1.75% in Sep (SES danger threshold: 5%)
-- **Hard bounce spike**: Sep 17 had 39 hard bounces in one send (normal is 0-6) — suspicious batch of bad emails
-- **Complaint rate**: ~9 complaints in last 7 days — SES threshold is 0.08% (7 complaints on 8,500 send)
-- **Root cause**: Rapid list growth (2k → 10k) brought in many low-quality/invalid emails
-- **List shrinking**: 9,970 → ~8,800 as bounces/complaints are cleaned out
-- **Previous platform (Daily AI)**: Was sending to ~54k contacts (33k active + 21k activating) with 23-48% open rates. Contacted them Sep 2026 to request list export segmented by active/activating.
+- **Problem**: Open rates dropped from 6-9% (Aug) to 3-5% (Sep). Bounce rates hit 1.57-1.75% per send.
+- **Root cause**: Rapid list growth (2k → 10k) brought in low-quality/invalid emails
+- **Fix applied**: Switched to `ddn-free-active` tag — curated list of 1,679 clean contacts
+- **Monitoring**: Seed emails added to list to check inbox placement across Gmail/Outlook/Yahoo
+- **Previous platform (Daily AI)**: Was sending to ~54k contacts (33k active + 21k activating) with 23-48% open rates. Contacted them Sep 2026 to request list export.
+- **SES complaint threshold**: 0.08% — stay under this at all times
+
+---
+
+## EVENING NEWSLETTER — ARTICLE LINK STYLE (Sep 2026)
+- Article links changed from red `dedollarizenews.com` text → blue underlined full article title
+- Style: `color:#1a0dab; text-decoration:underline; font-size:15px`
+- Looks like a traditional news/Google-style hyperlink — more familiar for readers
 
 ---
 
 ## UNSUBSCRIBE SYSTEM
 - Self-hosted at `GET /unsubscribe?email=xxx&sig=xxx&send_id=xxx`
 - HMAC-SHA256 signed with GHL_WEBHOOK_SECRET (first 16 chars of hex)
-- send_id now embedded in URL so unsubscribes link to the correct newsletter in analytics
+- send_id embedded in URL so unsubscribes link to correct newsletter in analytics
 - Shows branded confirmation page
 
 ---
 
 ## GHL SETUP
-- Free list: contacts tagged `ddn-free` (GHL API caps at 10,000 contacts — page 101 returns 400)
-- Premium list: contacts tagged `ddn-inner-circle` (but pulled from Neon DB, not GHL)
+- **Active send list**: `ddn-free-active` (~1,679 contacts as of Sep 2026)
+- **Old send list**: `ddn-free` (~9,970 contacts — no longer used for sending)
+- GHL API caps at 10,000 contacts per tag (page 101 returns 400) — known issue, needs fix when list grows
+- Premium list: `ddn-inner-circle` (pulled from Neon DB, not GHL)
 - GHL webhook at `/webhook/ghl`: event=subscribe adds/reactivates in DB, event=cancel freezes
 - GHL API key: static private integration key (doesn't expire)
-- GHL trigger links don't work with SES sends — that's why we built self-hosted unsubscribe
 
 ---
 
@@ -245,7 +264,9 @@ pool.query(\`
 
 ---
 
-## IMPORTANT BUGS FIXED (full history)
+## FULL CHANGE HISTORY
+
+### Bugs fixed (all time):
 - Neon DB 4-min ping removed (was burning free compute quota)
 - Claude model updated from `claude-sonnet-4-20250514` (retired) to `claude-sonnet-4-6`
 - Anthropic SDK upgraded from 0.24 to 0.105
@@ -256,23 +277,25 @@ pool.query(\`
 - Morning + evening send crons removed — all sends are now manual
 - One-time soft bounce cleanup ran Aug 3 2026 — removed 461 repeat bouncers
 
-## CHANGES MADE Sep 2026 (this session)
-- `sesEvents.js`: Real-time complaint + hard bounce GHL tag removal (no more waiting for nightly cleanup)
+### Sep 2026 changes:
+- `sesEvents.js`: Real-time complaint + hard bounce GHL tag removal (both `ddn-free` + `ddn-free-active`)
 - `sesEvents.js`: Real-time `clicked-ddn-free` tag on email link clicks (unsubscribe links excluded)
-- `unsubscribe.js`: Added `unsubscribed-ddn-free` tag to GHL on unsubscribe
+- `unsubscribe.js`: Added `unsubscribed-ddn-free` tag + removes `ddn-free-active` on unsubscribe
 - `email.js`: Embedded `send_id` in unsubscribe URL so analytics shows unsubscribes per newsletter
-- `unsubscribe.js`: Logs unsubscribe event with `send_id` to email_events
-- `admin.js`: Analytics clicks column now excludes unsubscribe link clicks (NOT LIKE '%unsubscribe%')
-- `dailyNewsletter.js`: Added ongoing soft bounce cleanup to nightly job — 3+ soft bounces → remove `ddn-free`, add `soft-bounced-ddn-free`
+- `admin.js`: Analytics clicks column excludes unsubscribe link clicks
+- `dailyNewsletter.js`: Soft bounce nightly cleanup (3+ bounces → remove tags, add `soft-bounced-ddn-free`)
+- `dailyNewsletter.js`: Switched send list from `ddn-free` → `ddn-free-active`
+- `newsletter.js`: Evening newsletter article links now blue underlined title (was red dedollarizenews.com)
 
 ---
 
 ## OPEN ITEMS / NEXT STEPS
-- **GHL 10k contact cap**: Need to fix getContactsByTag() to handle lists over 10,000 (page 101 returns 400, currently stops at 10k)
-- **Deliverability**: Open rates dropped 3-5%, bounce rates climbing. Need to improve list quality.
-- **Daily AI list import**: Contacted Daily AI Sep 2026 to request export of ~54k contacts (33k active + 21k activating). Once received, plan to import active list into GHL carefully.
-- **SES daily quota increase**: Needed before scaling to 50k+ contacts (current limit 50k/day)
+- **GHL 10k contact cap**: Fix `getContactsByTag()` for lists over 10,000 (page 101 returns 400) — needed when list grows again
+- **Daily AI list import**: Contacted Sep 2026 for ~54k contact export (33k active + 21k activating) — awaiting response
+- **SES daily quota increase**: Needed before scaling to 50k+ contacts
 - **Render auto-deploy**: Not configured — manual deploy required after every push
+- **Seed email inbox test**: Added seed emails to `ddn-free-active` — check if landing in inbox after next send
+- **Zoom relay call log**: `phone.caller_call_log_completed` payload structure still unconfirmed — need one more test call to fix field mapping
 
 ---
 
@@ -284,3 +307,9 @@ pool.query(\`
 - Image prompts for free newsletter: clean editorial photography, bright natural lighting (NOT dark/dramatic)
 - DB can be queried locally using DATABASE_URL from local .env (it's valid)
 - GHL_WEBHOOK_SECRET is blank in local .env — use Render for anything needing that
+
+---
+
+## RELATED PROJECTS (same Render account — G6-webservices)
+- `zoom-transcript-relay` — Zoom Phone → GHL transcript relay. Code: `/Users/g6dev/Desktop/ZOOM PROJECT /zoom-transcript-relay`. GitHub: `smuthug6/zoom-transcript-relay`. Handles `phone.recording_transcript_completed` + `phone.caller_call_log_completed`. Transcripts working ✅. Call log payload structure still being debugged ⚠️.
+- `g6-call-intelligence`, `g6-dashboards`, `sync-ghl-activity`, `utm-processor` — other G6 services, not owned by Sab.
