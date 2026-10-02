@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
-const APP_URL = 'https://ai.g6platform.com';
+const APP_URL = 'https://unsubscribe.dedollarizenews.com';
 const UNSUBSCRIBE_PLACEHOLDER = 'UNSUBSCRIBE_URL_PLACEHOLDER';
 
 function generateUnsubscribeUrl(email, sendId) {
@@ -36,7 +36,7 @@ const FROM = `"De-Dollarize News" <${process.env.SES_FROM_EMAIL || 'newsletter@m
 async function sendEmail({ to, subject, html, tier, sendId }) {
   const transporter = getTransporter();
   const headers = {
-    'List-Unsubscribe': '<https://sites.leadconnectorhq.com/preview/iWCmwhl0MwsTeCHsEUqp?notrack=true>',
+    'List-Unsubscribe': `<${generateUnsubscribeUrl(to, sendId)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     'X-SES-CONFIGURATION-SET': 'newsletter-tracking',
   };
