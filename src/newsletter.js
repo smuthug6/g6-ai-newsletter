@@ -37,15 +37,14 @@ const IMAGE_THEMES = [
 async function generateStoryImage(headline) {
   if (!process.env.GOOGLE_AI_KEY) return null;
   try {
-    const imagePrompt = `Clean editorial photography for financial news headline: "${headline}". Bright natural lighting, neutral white or light background, modern professional magazine style, sharp and crisp, no text, no logos, no people, no faces. Do not show coins unless the headline is specifically about gold or silver coins — in that case use American Eagle coins only.`;
+    const imagePrompt = `16:9 widescreen clean editorial photography for financial news headline: "${headline}". Bright natural lighting, neutral white or light background, modern professional magazine style, sharp and crisp, no text, no logos, no people, no faces. Do not show coins unless the headline is specifically about gold or silver coins — in that case use American Eagle coins only.`;
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${process.env.GOOGLE_AI_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${process.env.GOOGLE_AI_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          instances: [{ prompt: imagePrompt }],
-          parameters: { sampleCount: 1, aspectRatio: '16:9' },
+          contents: [{ parts: [{ text: imagePrompt }] }],
         }),
       }
     );
@@ -56,11 +55,12 @@ async function generateStoryImage(headline) {
     }
 
     const data = await response.json();
-    const b64 = data?.predictions?.[0]?.bytesBase64Encoded || null;
-    if (!b64) console.warn(`Imagen: no image for "${headline}". Response: ${JSON.stringify(data).slice(0, 200)}`);
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const b64 = parts.find(p => p.inlineData?.data)?.inlineData?.data || null;
+    if (!b64) console.warn(`Gemini image: no image for "${headline}". Response: ${JSON.stringify(data).slice(0, 200)}`);
     return b64;
   } catch (err) {
-    console.error(`Imagen failed for "${headline}": ${err.message}`);
+    console.error(`Gemini image failed for "${headline}": ${err.message}`);
     return null;
   }
 }
