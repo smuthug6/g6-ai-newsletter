@@ -15,7 +15,7 @@ async function getPremiumRecipients() {
 
 // ── Free: GHL contacts with ddn-free-active tag ──────────────────────────────
 async function getFreeRecipients() {
-  const contacts = await getContactsByTag('ddn-free-active');
+  const contacts = await getContactsByTag('internal-seeds');  // TEMP: seed test for Free Teaser redesign — revert to 'ddn-free-active' after
   const seen = new Set();
   return contacts
     .map(c => ({ email: (c.email || c.emailAddress || '').trim() }))
