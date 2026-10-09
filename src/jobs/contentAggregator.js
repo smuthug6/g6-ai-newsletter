@@ -74,7 +74,7 @@ async function rankWithGrok(articles) {
   if (!process.env.GROK_API_KEY) throw new Error('GROK_API_KEY not set');
 
   const articleList = articles
-    .map((a, i) => `${i + 1}. [${a.source}] ${a.title}${a.summary ? ' — ' + a.summary.slice(0, 150) : ''}`)
+    .map((a, i) => `${i + 1}. [${a.source}] ${a.title}${a.summary ? ' — ' + a.summary.slice(0, 150) : ''}\n   URL: ${a.url || ''}`)
     .join('\n');
 
   const prompt = `You are analyzing financial news for a de-dollarization and wealth protection newsletter.
@@ -88,6 +88,7 @@ For each topic return a JSON object with:
 - summary: 2-3 sentences — what's happening, why it matters for wealth protection, what readers should know
 - source: which feed(s) cover this
 - score: virality score 1-100
+- url: copy exactly the URL from the primary article you based this topic on (from the "URL:" line in the input)
 
 Return ONLY a valid JSON array of 10 objects. No other text.
 
