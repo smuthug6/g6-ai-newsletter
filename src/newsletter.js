@@ -305,7 +305,7 @@ Open with the key insight. Build urgency. Make the reader feel they absolutely n
     ${divider}
     <div style="padding:0 40px 0;${topBorder}">
       <div style="padding-top:24px;">
-        ${img ? `<img src="${img}" style="width:100%;height:240px;object-fit:cover;display:block;border-radius:6px;margin-bottom:16px;" alt="">` : ''}
+        ${img ? `<a href="${a.url}" style="display:block;text-decoration:none;"><img src="${img}" style="width:100%;height:240px;object-fit:cover;display:block;border-radius:6px;margin-bottom:16px;border:0;outline:none;" alt="${a.title}"></a>` : ''}
         <h2 style="color:#1a1a1a;font-size:19px;font-weight:800;margin:0 0 12px;line-height:1.35;">${a.title}</h2>
         <p style="color:#555555;font-size:15px;line-height:1.75;margin:0 0 14px;">${para}</p>
         <a href="${a.url}" style="color:#1a0dab;font-size:15px;font-weight:400;text-decoration:underline;">${a.title}</a>
