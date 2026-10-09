@@ -248,32 +248,37 @@ async function generateFreeNewsletter(articles) {
   const today = TODAY();
   const header = BREAKING_HEADERS[new Date().getDay() % BREAKING_HEADERS.length];
   const topStory = articles[0];
-  const topStoryContext = `Title: ${topStory.title}\nSummary: ${topStory.excerpt || topStory.summary || '(no summary)'}`;
 
-  // Run Claude (story 1 paragraph), Imagen (1 image), DDN RSS — all concurrently
-  const [response, storyImageUrl, ddnArticles] = await Promise.all([
-    client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 400,
-      system: SYSTEM_PROMPT,
-      messages: [{
-        role: 'user',
-        content: `Write a short curiosity-building paragraph (3-4 sentences) for the De-Dollarize News free newsletter about this story:
+  // Build Claude prompt per story (3 in parallel)
+  const claudePromise = (article) => client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 400,
+    system: SYSTEM_PROMPT,
+    messages: [{
+      role: 'user',
+      content: `Write a short curiosity-building paragraph (3-4 sentences) for the De-Dollarize News free newsletter about this story:
 
-${topStoryContext}
+Title: ${article.title}
+Summary: ${article.excerpt || article.summary || '(no summary)'}
 
 Open with the key insight. Build urgency. Make the reader feel they absolutely need to know what's behind this. Cut off with "..." leaving them wanting more. Return only the paragraph, no HTML, no em dashes.`,
-      }],
-    }),
-    // Generate 1 image for story 1 only
-    generateStoryImage(topStory.title).then(async b64 => {
-      if (!b64) return null;
-      try { return await uploadToS3(b64); } catch (e) { console.error('S3 upload failed:', e.message); return null; }
-    }),
+    }],
+  });
+
+  // Image per story (3 in parallel), then S3 upload
+  const imagePromise = (article) => generateStoryImage(article.title).then(async b64 => {
+    if (!b64) return null;
+    try { return await uploadToS3(b64); } catch (e) { console.error('S3 upload failed:', e.message); return null; }
+  });
+
+  // Run 3 Claude paragraphs + 3 images + DDN RSS — all concurrently
+  const [paragraphs, images, ddnArticles] = await Promise.all([
+    Promise.all(articles.map(claudePromise)),
+    Promise.all(articles.map(imagePromise)),
     fetchRecentDDNArticles(2).catch(e => { console.error('DDN RSS failed:', e.message); return []; }),
   ]);
 
-  const curiosityPara = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  const curiosityParas = paragraphs.map(r => r.content.filter(b => b.type === 'text').map(b => b.text).join('').trim());
 
   // ── Numbered bullet list (all 3 headlines) ────────────────────────────────
   const bulletListHTML = `
@@ -289,28 +294,27 @@ Open with the key insight. Build urgency. Make the reader feel they absolutely n
       </div>
     </div>`;
 
-  // ── Story 1: full image + curiosity paragraph ─────────────────────────────
-  const featuredStoryHTML = `
-    <div style="padding:0 40px 0;border-top:2px solid #f0f0f0;margin-top:8px;">
+  // ── 3 full stories: image + title + Claude paragraph + blue underlined title link ──
+  const storiesHTML = articles.map((a, i) => {
+    const img = images[i];
+    const para = curiosityParas[i];
+    const isFirst = i === 0;
+    const divider = isFirst ? '' : `<div style="height:1px;background:#e8e8e8;margin:32px 40px 0;"></div>`;
+    const topBorder = isFirst ? 'border-top:2px solid #f0f0f0;margin-top:8px;' : '';
+    return `
+    ${divider}
+    <div style="padding:0 40px 0;${topBorder}">
       <div style="padding-top:24px;">
-        ${storyImageUrl ? `<img src="${storyImageUrl}" style="width:100%;height:240px;object-fit:cover;display:block;border-radius:6px;margin-bottom:16px;" alt="">` : ''}
-        <h2 style="color:#1a1a1a;font-size:19px;font-weight:800;margin:0 0 12px;line-height:1.35;">${topStory.title}</h2>
-        <p style="color:#555555;font-size:15px;line-height:1.75;margin:0 0 24px;">${curiosityPara}</p>
+        ${img ? `<img src="${img}" style="width:100%;height:240px;object-fit:cover;display:block;border-radius:6px;margin-bottom:16px;" alt="">` : ''}
+        <h2 style="color:#1a1a1a;font-size:19px;font-weight:800;margin:0 0 12px;line-height:1.35;">${a.title}</h2>
+        <p style="color:#555555;font-size:15px;line-height:1.75;margin:0 0 14px;">${para}</p>
+        <a href="${a.url}" style="color:#1a0dab;font-size:15px;font-weight:400;text-decoration:underline;">${a.title}</a>
       </div>
     </div>`;
-
-  const cta1HTML = `
-    <div style="padding:32px 40px;text-align:center;background:#f9f9f9;border-top:3px solid #cc0000;">
-      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">MEMBERS ONLY</p>
-      <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
-        GET OUR EXCLUSIVE DAILY ANALYSIS →<br>
-        <span style="font-weight:400;font-size:13px;opacity:.9;">Subscribe to Inner Circle for dedollarizenews.com<br>premium content delivered daily</span>
-      </a>
-      <p style="color:#999999;font-size:12px;margin:16px 0 0;">Full analysis · Real sources · Wealth protection strategies</p>
-    </div>`;
+  }).join('');
 
   const whatYouGetHTML = `
-    <div style="padding:28px 40px;background:#ffffff;border-top:1px solid #e8e8e8;">
+    <div style="padding:28px 40px;background:#ffffff;border-top:1px solid #e8e8e8;margin-top:32px;">
       <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 16px;">What you get</p>
       <p style="font-size:14px;color:#333333;line-height:1.7;margin:0 0 10px;">➡️ <strong>Full Access to <a href="https://www.dedollarizenews.com" style="color:#cc0000;text-decoration:none;">dedollarizenews.com</a></strong> — the running record of what the dollar is doing and who's moving away from it.</p>
       <p style="font-size:14px;color:#333333;line-height:1.7;margin:0 0 10px;">➡️ <strong>Email Update</strong> when the story moves — central bank shifts, gold flows, policy turns. No filler.</p>
@@ -337,18 +341,7 @@ Open with the key insight. Build urgency. Make the reader feel they absolutely n
       </div>`).join('')}
     </div>` : '';
 
-  const cta2HTML = `
-    <div style="padding:36px 40px;text-align:center;background:#0d0d0d;">
-      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 10px;">THE DOLLAR ISN'T WAITING</p>
-      <p style="color:#ffffff;font-size:20px;font-weight:700;margin:0 0 8px;line-height:1.3;">Still reading headlines?</p>
-      <p style="color:#aaaaaa;font-size:15px;margin:0 0 24px;line-height:1.5;">Start reading what's <em>behind</em> them.</p>
-      <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:18px 40px;border-radius:6px;font-weight:900;font-size:15px;letter-spacing:.5px;">
-        JOIN INNER CIRCLE NOW →
-      </a>
-      <p style="color:#555555;font-size:11px;margin:20px 0 0;">Join thousands protecting their wealth from the coming reset.</p>
-    </div>`;
-
-  const bodyContent = bulletListHTML + featuredStoryHTML + cta1HTML + whatYouGetHTML + ddnHTML + cta2HTML;
+  const bodyContent = bulletListHTML + storiesHTML + whatYouGetHTML + ddnHTML;
   const html = wrapHTML(bodyContent, today, FREE_HEADER_HTML(today));
   const subject = `${getSubjectEmoji(topStory.title)} ${topStory.title.substring(0, 76)}`;
 
