@@ -15,7 +15,7 @@ async function getPremiumRecipients() {
 
 // ── Free: GHL contacts with ddn-free-active tag ──────────────────────────────
 async function getFreeRecipients() {
-  const contacts = await getContactsByTag('internal-seeds');  // TEMP: seed test for Free Teaser redesign — revert to 'ddn-free-active' after
+  const contacts = await getContactsByTag('ddn-free-active');
   const seen = new Set();
   return contacts
     .map(c => ({ email: (c.email || c.emailAddress || '').trim() }))
@@ -107,16 +107,14 @@ async function runFreeNewsletter() {
     if (allContacts.length === 0) throw new Error('No free contacts found');
 
     const total = allContacts.length;
-    // TEMP: batching disabled for seed test — revert BATCH_COUNT to 4 and batchDelays to [0,30,60,90] after
-    const BATCH_COUNT = 1;
-    const batchSize = Math.ceil(total / BATCH_COUNT);
-    const batches = Array.from({ length: BATCH_COUNT }, (_, i) =>
+    const batchSize = Math.ceil(total / 4);
+    const batches = Array.from({ length: 4 }, (_, i) =>
       allContacts.slice(i * batchSize, (i + 1) * batchSize)
     ).filter(b => b.length > 0);
 
     const freeSendId = randomUUID();
     const startTime = Date.now();
-    const batchDelays = [0]; // TEMP: was [0, 30, 60, 90]
+    const batchDelays = [0, 30, 60, 90];
 
     console.log(`📧 Free recipients: ${total} → ${batches.length} batches of ~${batchSize}`);
 
