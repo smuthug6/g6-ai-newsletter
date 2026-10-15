@@ -478,17 +478,15 @@ Return ONLY a JSON array of strings, one paragraph per story:
     </div>${divider}`;
   }).join('\n');
 
-  const ctaHTML = `
-    <div style="padding:36px 40px;text-align:center;background:#f9f9f9;margin-top:32px;border-top:3px solid #cc0000;">
-      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 12px;">MEMBERS ONLY</p>
-      <a href="https://offer.dedollarizenews.com/inner-circle-sale/" style="display:inline-block;background:#cc0000;color:#ffffff;text-decoration:none;padding:20px 36px;border-radius:6px;font-weight:900;font-size:16px;letter-spacing:.5px;line-height:1.6;">
-        GET OUR EXCLUSIVE DAILY ANALYSIS →<br>
-        <span style="font-weight:400;font-size:13px;opacity:.9;">Subscribe to Inner Circle for dedollarizenews.com<br>premium content delivered daily</span>
-      </a>
-      <p style="color:#999999;font-size:12px;margin:16px 0 0;">Full analysis · Real sources · Wealth protection strategies</p>
+  const whatYouGetHTML = `
+    <div style="padding:28px 40px;background:#ffffff;border-top:1px solid #e8e8e8;margin-top:32px;">
+      <p style="color:#cc0000;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0 0 16px;">What you get</p>
+      <p style="font-size:14px;color:#333333;line-height:1.7;margin:0 0 10px;">➡️ <strong>Full Access to <a href="https://www.dedollarizenews.com" style="color:#cc0000;text-decoration:none;">dedollarizenews.com</a></strong> — the running record of what the dollar is doing and who's moving away from it.</p>
+      <p style="font-size:14px;color:#333333;line-height:1.7;margin:0 0 10px;">➡️ <strong>Email Update</strong> when the story moves — central bank shifts, gold flows, policy turns. No filler.</p>
+      <p style="font-size:14px;color:#333333;line-height:1.7;margin:0;">➡️ <strong>A working framework</strong> for reading dollar news the way the people watching it actually do.</p>
     </div>`;
 
-  const bodyContent = bulletHTML + storiesHTML + ctaHTML;
+  const bodyContent = bulletHTML + storiesHTML + whatYouGetHTML;
 
   const html = `<!DOCTYPE html>
 <html>
