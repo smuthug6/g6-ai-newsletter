@@ -341,7 +341,7 @@ async function runBounceCleanup() {
 
 // ── Evening newsletter: articles 4,5,6 — sends at 4pm EDT ────────────────────
 async function runEveningNewsletter() {
-  console.log('🌆 Starting evening newsletter...');
+  console.log('🌆 Starting evening newsletter (batched)...');
   try {
     // Fetches today's DDN articles internally — returns early if no new articles
     const result = await generateEveningNewsletter();
@@ -350,21 +350,42 @@ async function runEveningNewsletter() {
     try { allContacts = await getFreeRecipients(); } catch (err) { console.warn(`⚠️ GHL failed: ${err.message}`); }
     if (allContacts.length === 0) throw new Error('No free contacts found');
 
+    const total = allContacts.length;
+    const batchSize = Math.ceil(total / 4);
+    const batches = Array.from({ length: 4 }, (_, i) =>
+      allContacts.slice(i * batchSize, (i + 1) * batchSize)
+    ).filter(b => b.length > 0);
+
     const sendId = randomUUID();
-    console.log(`📧 Evening recipients: ${allContacts.length}`);
+    const startTime = Date.now();
+    const batchDelays = [0, 30, 60, 90];
 
-    const send = await sendBulk(allContacts, result.subject, result.html, { tier: 'free', sendId });
-    console.log(`✅ Evening sent — sent: ${send.sent}, failed: ${send.failed}`);
+    console.log(`📧 Evening recipients: ${total} → ${batches.length} batches of ~${batchSize}`);
 
-    try {
-      await db.query('SELECT 1');
-      await db.query(
-        `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, $3, $4, 'free', $5)`,
-        [result.subject, result.html, send.sent, ['dream100-evening'], sendId]
-      );
-    } catch (err) { console.warn(`⚠️ DB log failed: ${err.message}`); }
+    await db.query(
+      `INSERT INTO newsletters (subject, html_content, sent_to, topics, tier, send_id) VALUES ($1, $2, 0, $3, 'free', $4)`,
+      [result.subject, result.html, ['dream100-evening'], sendId]
+    );
 
-    return { message: `Evening send complete — ${send.sent} sent` };
+    // Fire batches in background
+    (async () => {
+      let totalSent = 0;
+      for (let i = 0; i < batches.length; i++) {
+        const waitMs = (startTime + batchDelays[i] * 60 * 1000) - Date.now();
+        if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+        console.log(`📧 Evening batch ${i + 1}/${batches.length} — ${batches[i].length} contacts...`);
+        const sent = await sendBulk(batches[i], result.subject, result.html, { tier: 'free', sendId });
+        totalSent += sent.sent;
+        console.log(`✅ Evening batch ${i + 1} done — sent: ${sent.sent} | total: ${totalSent}`);
+        try {
+          await db.query('SELECT 1');
+          await db.query(`UPDATE newsletters SET sent_to = $1 WHERE send_id = $2`, [totalSent, sendId]);
+        } catch (err) { console.warn(`⚠️ DB update failed batch ${i + 1}: ${err.message}`); }
+      }
+      console.log(`✅ All evening batches complete — total sent: ${totalSent}`);
+    })().catch(err => console.error('❌ Evening batch error:', err.message));
+
+    return { message: `Evening batched send started — ${batches.length} batches of ~${batchSize} over 90 minutes` };
   } catch (err) {
     if (err.message.includes('No DDN articles')) {
       console.log('⏭️  Evening newsletter skipped — no new articles on dedollarizenews.com today');
